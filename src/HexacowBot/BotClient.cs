@@ -10,7 +10,6 @@ namespace HexacowBot
 	{
 		private readonly IConfiguration config;
 		private readonly ILogger logger;
-		public ulong GuildId { get; private set; }
 
 		public BotClient(IConfiguration config, ILogger<BotClient> logger)
 		{
@@ -25,8 +24,6 @@ namespace HexacowBot
 		{
 			Console.WriteLine("Initializing bot.");
 			Log += LogHandler;
-
-			GuildId = ulong.Parse(config["Discord:GuildId"]);
 		}
 
 		private async void Start()

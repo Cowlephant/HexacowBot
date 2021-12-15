@@ -14,7 +14,6 @@ public sealed class DigitalOceanService
 	public long dropletId { get; private set; }
 	public Droplet droplet { get; private set; } = null!;
 	public Size currentSize { get; private set; } = null!;
-	public Balance currentBalance { get; private set; } = null!;
 	public bool IsBusy { get; private set; }
 
 	private HashSet<(string, string)> slugPrices = null!;
@@ -33,33 +32,27 @@ public sealed class DigitalOceanService
 		dropletId = long.Parse(configuration["DigitalOcean:DropletId"]);
 
 		droplet = await client.Droplets.Get(dropletId);
-		currentBalance = await client.BalanceClient.Get();
 		slugPrices = (await client.Sizes.GetAll())
 			.Select(s => (s.Slug, $"${s.PriceMonthly}"))
 			.ToHashSet<(string, string)>();
 		currentSize = droplet.Size;
 	}
 
-	public async Task ResizeDroplet(string sizeSlug, System.Action callback)
+	public async Task ResizeDroplet(string sizeSlug, System.Action? callback)
 	{
 		// TODO: Check if there are running servers first and abort and notify if so
 		// Attempt to shut down droplet first
-		await ShutdownDroplet(dropletId);
+		await StopDroplet();
 
 		var action = await client.DropletActions.Resize(dropletId, sizeSlug, resizeDisk: false);
-		while (action.Status != "completed")
-		{
-			action = await client.Actions.Get(action.Id);
-			Thread.Sleep(actionPollInterval);
-		}
+		await WaitForActionToComplete(action, pollingInterval: 5000, -1); 
 
-		await StartDroplet(dropletId);
+		await StartDroplet();
 
 		droplet = await client.Droplets.Get(dropletId);
 		currentSize = droplet.Size;
-		currentBalance = await client.BalanceClient.Get();
 
-		callback();
+		callback!();
 	}
 
 	public string GetSlugMonthlyCost(string sizeSlug)
@@ -67,34 +60,81 @@ public sealed class DigitalOceanService
 		return slugPrices.First(s => s.Item1 == sizeSlug).Item2;
 	}
 
-	private async Task ShutdownDroplet(long dropletId)
+	public async Task<string> GetMonthToDateBalance()
+	{
+		var balance = await client.BalanceClient.Get();
+		return balance.MonthToDateBalance;
+	}
+
+	public async Task StopDroplet(System.Action? callback = null)
 	{
 		// Shut down the server and wait until it's completed
 		var action = await client.DropletActions.Shutdown(dropletId);
-		int timeoutCount = 0;
-		while (action.Status != "completed" && timeoutCount < shutdownTimeout)
-		{
-			action = await client.Actions.Get(action.Id);
-			Thread.Sleep(actionPollInterval);
-			timeoutCount++;
-		}
+		var success = await WaitForActionToComplete(action);
 
 		// If shutdown wasn't successful after interval, attempt a power off
-		while (action.Status != "completed")
+		if (!success)
 		{
 			action = await client.DropletActions.PowerOff(dropletId);
-			Thread.Sleep(actionPollInterval);
+			await WaitForActionToComplete(action, actionPollInterval);
 		}
+
+		callback!();
 	}
 
-	private async Task StartDroplet(long dropletId)
+	public async Task StartDroplet(System.Action? callback = null)
 	{
-		// Shut down the server and wait until it's completed
+		// Start the server and wait until it's completed
 		var action = await client.DropletActions.PowerOn(dropletId);
-		while (action.Status != "completed")
+		await WaitForActionToComplete(action);
+
+		callback!();
+	}
+
+	public async Task RestartDroplet(System.Action? callback = null)
+	{
+		var action = await client.DropletActions.Reboot(dropletId);
+		await WaitForActionToComplete(action);
+
+		callback!();
+	}
+
+	public async Task PowerCycleDroplet(System.Action? callback = null)
+	{
+		var action = await client.DropletActions.PowerCycle(dropletId);
+		await WaitForActionToComplete(action);
+
+		callback!();
+	}
+
+	private async Task<bool> WaitForActionToComplete(
+		DigitalOcean.API.Models.Responses.Action action,
+		int pollingInterval = actionPollInterval,
+		int pollingMaxTimes = 90)
+	{
+		int timeoutCount = 0;
+		while (Status(action.Status) != DropletActionStatus.Completed)
 		{
 			action = await client.Actions.Get(action.Id);
-			Thread.Sleep(actionPollInterval);
+
+			if (Status(action.Status) == DropletActionStatus.)
+
+			Thread.Sleep(pollingInterval);
+			timeoutCount++;
+
+			// If we have a max time of -1, we'll retry indefinitely
+			if (pollingMaxTimes != -1 && timeoutCount >= pollingMaxTimes)
+			{
+				return false;
+			}
 		}
+
+		return true;
+	}
+
+	private DropletActionStatus Status(string status)
+	{
+		var dropletActionStatus = DropletActionStatus.FromName(status);
+		return DropletActionStatus.FromName(status);
 	}
 }
