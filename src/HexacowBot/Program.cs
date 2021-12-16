@@ -1,5 +1,6 @@
 ﻿using DigitalOcean.API;
 using Discord.Commands;
+using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -30,7 +31,22 @@ public class Program
 		});
 		services.AddSingleton<Bot>();
 		services.AddSingleton<DiscordSocketClient, BotClient>();
-		services.AddSingleton<CommandService>();
+		services.AddSingleton<InteractionService>(serviceCollection => new InteractionService(
+			serviceCollection.GetService<DiscordSocketClient>(),
+			new InteractionServiceConfig
+			{
+				DefaultRunMode = Discord.Interactions.RunMode.Async,
+				ThrowOnError = true,
+				LogLevel = Discord.LogSeverity.Verbose
+			}));
+		services.AddSingleton<CommandService>(new CommandService(
+			new CommandServiceConfig
+			{
+				DefaultRunMode = Discord.Commands.RunMode.Async,
+				ThrowOnError = true,
+				CaseSensitiveCommands = false,
+				LogLevel = Discord.LogSeverity.Verbose
+			}));
 		services.AddSingleton<CommandHandler>();
 		services.AddSingleton<DigitalOceanService>();
 
@@ -61,6 +77,6 @@ public class Program
 	private static void WarmupServices(IServiceProvider services, IHostApplicationLifetime lifetime)
 	{
 		var bot = services.GetRequiredService<Bot>();
-		lifetime.ApplicationStopping.Register(async _ => await bot.Stop() , bot);
+		lifetime.ApplicationStopping.Register(async _ => await bot.Stop(), bot);
 	}
 }

@@ -22,6 +22,7 @@ public sealed class Bot : IDisposable
 
 	private async void Start()
 	{
+		client.Ready += RegisterSlashCommands;
 		await commandHandler.InstallCommandsAsync();
 	}
 
@@ -32,5 +33,10 @@ public sealed class Bot : IDisposable
 			await client.LogoutAsync();
 			await client.StopAsync();
 		}
+	}
+
+	private async Task RegisterSlashCommands()
+	{
+		await commandHandler.RegisterSlashCommands();
 	}
 }

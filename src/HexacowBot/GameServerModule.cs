@@ -1,22 +1,35 @@
-﻿using Discord.Commands;
+﻿using Discord;
+using Discord.Commands;
+using Discord.Interactions;
+using Discord.WebSocket;
 using System.Text;
 
 namespace HexacowBot;
 
-public sealed class GameServerModule : ModuleBase<SocketCommandContext>
+public sealed class GameServerModule : InteractionModuleBase
 {
+	private const string ownerError = "During development this bot is only usable by the creator.";
+
 	private readonly DigitalOceanService server;
 	private readonly IConfiguration configuration;
+	public MessageComponent retryButtonComponent = null!;
+
+	private List<IUserMessage> messagesToDelete;
 
 	public GameServerModule(DigitalOceanService digitalOceanService, IConfiguration configuration)
 	{
-		this.server = digitalOceanService;
+		server = digitalOceanService;
 		this.configuration = configuration;
+
+		messagesToDelete = new List<IUserMessage>();
 	}
 
-	[Command("server-resize")]
+	[RequireOwner(ErrorMessage = ownerError)]
+	[SlashCommand("server-resize", "Resizes server to a specified slug.")]
 	public async Task ResizeServerAsync(string sizeSlug)
 	{
+		await DeferAsync();
+
 		// Let user know if it's not an acceptable slug
 		var allowedSizes = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
 		if (!allowedSizes.Contains(sizeSlug))
@@ -25,26 +38,33 @@ public sealed class GameServerModule : ModuleBase<SocketCommandContext>
 			return;
 		}
 
-		_ = Task.Run(() => server.ResizeDroplet(sizeSlug,
-			async () =>
-			{
-				var response = new StringBuilder();
-				response.AppendLine("__Game Server has finished resizing__");
-				response.AppendLine("```");
-				response.AppendLine($"{"vCpus".PadRight(15, ' ')} {server.currentSize.Vcpus}");
-				response.AppendLine($"{"Memory".PadRight(15, ' ')} {(server.currentSize.Memory / 1024)}GB");
-				response.AppendLine($"{"Price Hourly".PadRight(15, ' ')} ${server.currentSize.PriceHourly}");
-				response.AppendLine($"{"Price Monthly".PadRight(15, ' ')} ${server.currentSize.PriceMonthly}");
-				response.AppendLine($"{"Monthly Balance".PadRight(15, ' ')} ${await server.GetMonthToDateBalance()}");
-				response.AppendLine("```");
+		var initialMessage = await ReplyAsync($"Attempting to resize the server __**{server.DropletName}**__ to slug {sizeSlug}.");
+		messagesToDelete.Add(initialMessage);
+		var success = await server.ResizeDroplet(sizeSlug);
 
-				await ReplyAsync(response.ToString());
-			}));
+		if (success)
+		{
+			var size = await server.GetDropletSize();
+			var response = new StringBuilder();
+			response.AppendLine($"✅\tServer __**{server.DropletName}**__ has finished resizing to slug {sizeSlug}.");
+			response.AppendLine("```");
+			response.AppendLine($"{"vCpus".PadRight(15, ' ')} {size.Vcpus}");
+			response.AppendLine($"{"Memory".PadRight(15, ' ')} {(size.Memory / 1024)}GB");
+			response.AppendLine($"{"Price Hourly".PadRight(15, ' ')} ${size.PriceHourly}");
+			response.AppendLine($"{"Price Monthly".PadRight(15, ' ')} ${size.PriceMonthly}");
+			response.AppendLine($"{"Monthly Balance".PadRight(15, ' ')} ${await server.GetMonthToDateBalance()}");
+			response.AppendLine("```");
 
-		await ReplyAsync("Game Server resizing. I'll let you know when it's finished.");
+			await FollowupAsync($"✅\tServer __**{server.DropletName}**__ successfully booted up.");
+		}
+		else
+		{
+			await FollowupAsync($"❌\tSomething went wrong trying to resize the server __**{server.DropletName}**__.");
+		}
 	}
 
-	[Command("server-sizes")]
+	[RequireOwner(ErrorMessage = ownerError)]
+	[SlashCommand("server-sizes", "Lists allowed droplet size slugs.")]
 	public async Task ServerSizesAsync()
 	{
 		var allowedSizes = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
@@ -61,41 +81,156 @@ public sealed class GameServerModule : ModuleBase<SocketCommandContext>
 		}
 		response.AppendLine("```");
 
-		await ReplyAsync(response.ToString());
+		await RespondAsync(response.ToString());
 	}
 
-	[Command("server-balance")]
+	[RequireOwner(ErrorMessage = ownerError)]
+	[SlashCommand("server-balance", "Shows the Month to Date balance for the account.")]
 	public async Task ServerBalanceAsync()
 	{
 		var response = $"```Monthly Balance\t ${await server.GetMonthToDateBalance()}```";
-		await ReplyAsync(response);
+		await RespondAsync(response);
 	}
 
-	[Command("server-stop")]
-	public async Task ServerStopAsync()
-	{
-		_ = server.StopDroplet(async () => { await ReplyAsync("Server is shut down."); });
-		await ReplyAsync("Shutting down the server. I will let you know when it's finished.");
-	}
-
-	[Command("server-start")]
+	[RequireOwner(ErrorMessage = ownerError)]
+	[SlashCommand("server-start", "Boot up the server.")]
+	[ComponentInteraction("server-start-retry")]
 	public async Task ServerStartAsync()
 	{
-		_ = server.StartDroplet(async () => { await ReplyAsync("Server is booted up."); });
-		await ReplyAsync("Booting up the server. I will let you know when it's finished.");
+		await DeferAsync();
+
+		await RetryClearComponentInteraction(Context.Interaction);
+
+		var initialMessage = await ReplyAsync($"Attempting to boot up the server __**{server.DropletName}**__.");
+		messagesToDelete.Add(initialMessage);
+		var success = await server.StartDroplet();
+
+		if (success)
+		{
+			await FollowupAsync($"✅\t⬆️🖥 Server __**{server.DropletName}**__ successfully booted up.");
+		}
+		else
+		{
+			var retryButtonComponent = new ComponentBuilder()
+				.WithButton("Retry", "server-start-retry", ButtonStyle.Primary)
+				.WithButton("Abort", "server-abort", ButtonStyle.Danger)
+				.Build();
+
+			await ReplyAsync($"❌\t⬆️🖥 Something went wrong trying to boot up the server __**{server.DropletName}**__.");
+			await FollowupAsync("Would you like to retry?", ephemeral: true, component: retryButtonComponent);
+		}
 	}
 
-	[Command("server-restart")]
+	[RequireOwner(ErrorMessage = ownerError)]
+	[SlashCommand("server-stop", "Shuts down the server safely.")]
+	[ComponentInteraction("server-stop-retry")]
+	public async Task ServerStopAsync()
+	{
+		await DeferAsync();
+
+		await RetryClearComponentInteraction(Context.Interaction);
+
+		var initialMessage = await ReplyAsync($"Attempting to shut down the server __**{server.DropletName}**__.");
+		messagesToDelete.Add(initialMessage);
+		var success = await server.StopDroplet();
+
+		if (success)
+		{
+			await FollowupAsync($"✅\t⬇️🖥 Server __**{server.DropletName}**__ successfully shut down.");
+		}
+		else
+		{
+			var retryButtonComponent = new ComponentBuilder()
+				.WithButton("Retry", "server-stop-retry", ButtonStyle.Primary)
+				.WithButton("Abort", "server-abort", ButtonStyle.Danger)
+				.Build();
+
+			await ReplyAsync($"❌\t⬇️🖥 Something went wrong trying to shut down the server __**{server.DropletName}**__.");
+			await FollowupAsync("Would you like to retry?", ephemeral: true, component: retryButtonComponent);
+		}
+	}
+
+	[RequireOwner(ErrorMessage = ownerError)]
+	[SlashCommand("server-restart", "Restarts the server safely.")]
+	[ComponentInteraction("server-restart-retry")]
 	public async Task ServerRestartAsync()
 	{
-		_ = server.StartDroplet(async () => { await ReplyAsync("Server is restarted."); });
-		await ReplyAsync("Restarting the server. I will let you know when it's finished.");
+		await DeferAsync();
+
+		await RetryClearComponentInteraction(Context.Interaction);
+
+		var initialMessage = await ReplyAsync($"Attempting to restart the server __**{server.DropletName}**__.");
+		messagesToDelete.Add(initialMessage);
+		var success = await server.RestartDroplet();
+
+		if (success)
+		{
+			await FollowupAsync($"✅\t🔄🖥 Server __**{server.DropletName}**__ successfully restarted.");
+		}
+		else
+		{
+			var retryButtonComponent = new ComponentBuilder()
+				.WithButton("Retry", "server-restart-retry", ButtonStyle.Primary)
+				.WithButton("Abort", "server-abort", ButtonStyle.Danger)
+				.Build();
+
+			await ReplyAsync($"❌\t🔄🖥 Something went wrong trying to restart the server __**{server.DropletName}**__.");
+			await FollowupAsync("Would you like to retry?", ephemeral: true, component: retryButtonComponent);
+		}
 	}
 
+	[RequireOwner(ErrorMessage = ownerError)]
+	[ComponentInteraction("server-abort")]
+	public async Task ServerAbortAsync()
+	{
+		var component = (Context.Interaction as SocketMessageComponent)!;
+
+		await component.UpdateAsync(message =>
+		{
+			var clearComponents = new ComponentBuilder()
+				.Build();
+
+			message.Content = "Aborted.";
+			message.Components = clearComponents;
+		});
+	}
+
+	[RequireOwner(ErrorMessage = ownerError)]
 	[Command("server-powercycle")]
 	public async Task ServerPowerCycleAsync()
 	{
-		_ = server.StartDroplet(async () => { await ReplyAsync("Server is restarted."); });
+		_ = server.PowerCycleDroplet(async () => { await ReplyAsync("Server is restarted."); });
 		await ReplyAsync("Power cycling the server. I will let you know when it's finished.");
+	}
+
+	private async Task RetryClearComponentInteraction(IDiscordInteraction interaction)
+	{
+		if (interaction is SocketMessageComponent)
+		{
+			// We should be attempting to retry, so we'll remove the original interaction
+			var component = (interaction as SocketMessageComponent)!;
+			//await component.DeferAsync();
+
+			var originalResponse = await component.GetOriginalResponseAsync();
+			if (originalResponse is not null)
+			{
+				var disabledButton = new ComponentBuilder()
+					.Build();
+
+				await originalResponse.ModifyAsync(message =>
+				{
+					message.Content = "Retrying...";
+					message.Components = disabledButton;
+				});
+			}
+		}
+	}
+
+	public override async void AfterExecute(ICommandInfo command)
+	{
+		foreach(var message in messagesToDelete)
+		{
+			await message.DeleteAsync();
+		}
 	}
 }
