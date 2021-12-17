@@ -24,7 +24,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		messagesToDelete = new List<IUserMessage>();
 	}
 
-	[RequireOwner(ErrorMessage = ownerError)]
+	[RequireOwner]
 	[SlashCommand("server-resize", "Resizes server to a specified slug.")]
 	public async Task ResizeServerAsync(string sizeSlug)
 	{
@@ -55,7 +55,7 @@ public sealed class GameServerModule : InteractionModuleBase
 			response.AppendLine($"{"Monthly Balance".PadRight(15, ' ')} ${await server.GetMonthToDateBalance()}");
 			response.AppendLine("```");
 
-			await FollowupAsync($"✅\tServer __**{server.DropletName}**__ successfully booted up.");
+			await FollowupAsync(response.ToString());
 		}
 		else
 		{
@@ -63,7 +63,6 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 	}
 
-	[RequireOwner(ErrorMessage = ownerError)]
 	[SlashCommand("server-sizes", "Lists allowed droplet size slugs.")]
 	public async Task ServerSizesAsync()
 	{
@@ -81,18 +80,17 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 		response.AppendLine("```");
 
-		await RespondAsync(response.ToString());
+		await RespondAsync(response.ToString(), ephemeral: true);
 	}
 
-	[RequireOwner(ErrorMessage = ownerError)]
 	[SlashCommand("server-balance", "Shows the Month to Date balance for the account.")]
 	public async Task ServerBalanceAsync()
 	{
 		var response = $"```Monthly Balance\t ${await server.GetMonthToDateBalance()}```";
-		await RespondAsync(response);
+		await RespondAsync(response, ephemeral: true);
 	}
 
-	[RequireOwner(ErrorMessage = ownerError)]
+	[RequireOwner]
 	[SlashCommand("server-start", "Boot up the server.")]
 	[ComponentInteraction("server-start-retry")]
 	public async Task ServerStartAsync()
@@ -121,7 +119,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 	}
 
-	[RequireOwner(ErrorMessage = ownerError)]
+	[RequireOwner]
 	[SlashCommand("server-stop", "Shuts down the server safely.")]
 	[ComponentInteraction("server-stop-retry")]
 	public async Task ServerStopAsync()
@@ -150,7 +148,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 	}
 
-	[RequireOwner(ErrorMessage = ownerError)]
+	[RequireOwner]
 	[SlashCommand("server-restart", "Restarts the server safely.")]
 	[ComponentInteraction("server-restart-retry")]
 	public async Task ServerRestartAsync()
@@ -179,7 +177,6 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 	}
 
-	[RequireOwner(ErrorMessage = ownerError)]
 	[ComponentInteraction("server-abort")]
 	public async Task ServerAbortAsync()
 	{
@@ -195,7 +192,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		});
 	}
 
-	[RequireOwner(ErrorMessage = ownerError)]
+	[RequireOwner]
 	[Command("server-powercycle")]
 	public async Task ServerPowerCycleAsync()
 	{
