@@ -40,7 +40,8 @@ public sealed class CommandHandler
 		Console.WriteLine("Finding and installing commands.");
 		client.MessageReceived += HandleCommandAsync;
 		client.SlashCommandExecuted += HandleInteractionsAsync;
-		client.ButtonExecuted += HandleButtonAsync;
+		client.ButtonExecuted += HandleComponentInteractionsAsync;
+		client.SelectMenuExecuted += HandleComponentInteractionsAsync;
 
 		var assembly = Assembly.GetEntryAssembly();
 		await commandService.AddModulesAsync(assembly, serviceProvider);
@@ -77,7 +78,7 @@ public sealed class CommandHandler
 		await interactionService.ExecuteCommandAsync(interactionContext, serviceProvider);
 	}
 
-	private async Task HandleButtonAsync(SocketMessageComponent component)
+	private async Task HandleComponentInteractionsAsync(SocketMessageComponent component)
 	{
 		IInteractionContext context;
 		if (component is SocketMessageComponent)

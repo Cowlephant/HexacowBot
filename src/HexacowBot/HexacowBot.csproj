@@ -6,12 +6,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UserSecretsId>80e1dd09-1797-4f1e-be0d-83c94012644d</UserSecretsId>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <DockerfileContext>..\..</DockerfileContext>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Ardalis.SmartEnum" Version="2.0.1" />
     <PackageReference Include="DigitalOcean.API" Version="5.2.0" />
     <PackageReference Include="Discord.Net.Labs" Version="3.4.9" />
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.14.0" />
     <PackageReference Include="SSH.NET" Version="2020.0.1" />
     <PackageReference Include="System.Collections" Version="4.3.0" />
   </ItemGroup>

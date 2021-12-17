@@ -1,4 +1,5 @@
 ﻿using DigitalOcean.API;
+using Discord;
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;

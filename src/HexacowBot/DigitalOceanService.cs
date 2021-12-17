@@ -15,6 +15,9 @@ public sealed class DigitalOceanService
 	public string DropletName { get; private set; } = "Not Named - Rename me in config";
 	public bool IsBusy { get; private set; }
 
+	private HashSet<(string, Size)> slugSizes = null!;
+	public IEnumerable<(string, Size)> SlugSizes => SlugSizes.AsEnumerable();
+
 	private HashSet<(string, string)> slugPrices = null!;
 	public IEnumerable<(string, string)> SlugPrices => slugPrices.AsEnumerable();
 
@@ -31,10 +34,66 @@ public sealed class DigitalOceanService
 		DropletId = long.Parse(configuration["DigitalOcean:DropletId"]);
 		DropletName = configuration["DigitalOcean:DropletName"];
 
-		slugPrices = (await client.Sizes.GetAll())
-			.Select(s => (s.Slug, $"${s.PriceMonthly}"))
-			.ToHashSet<(string, string)>();
+		slugSizes = (await client.Sizes.GetAll())
+			.Select(s => (s.Slug, s))
+			.ToHashSet<(string, Size)>();
 	}
+
+	public async Task<Size> GetDropletSize()
+	{
+		return (await client.Droplets.Get(DropletId)).Size;
+	}
+
+	public Size GetSlugSize(string sizeSlug)
+	{
+		return slugSizes.FirstOrDefault(s => s.Item1 == sizeSlug).Item2;
+	}
+
+	public async Task<string> GetMonthToDateBalance()
+	{
+		var balance = await client.BalanceClient.Get();
+		return balance.MonthToDateBalance;
+	}
+
+	public async Task<bool> StartDroplet()
+	{
+		var action = await client.DropletActions.PowerOn(DropletId);
+		return await WaitForActionToComplete(action);
+	}
+
+	public async Task<bool> StopDroplet()
+	{
+		var action = await client.DropletActions.Shutdown(DropletId);
+		var success = await WaitForActionToComplete(action);
+
+		// If shutdown wasn't successful after interval, attempt a power off
+		if (!success)
+		{
+			action = await client.DropletActions.PowerOff(DropletId);
+			success = await WaitForActionToComplete(action, actionPollInterval);
+		}
+
+		return success;
+	}
+
+	public async Task<bool> RestartDroplet()
+	{
+		var action = await client.DropletActions.Reboot(DropletId);
+		return await WaitForActionToComplete(action);
+	}
+
+	public async Task PowerCycleDroplet(System.Action? callback = null)
+	{
+		var action = await client.DropletActions.PowerCycle(DropletId);
+		await WaitForActionToComplete(action);
+
+		if (callback is not null)
+		{
+			callback();
+		}
+	}
+
+	//public async Task HibernateDropnlet()
 
 	public async Task<bool> ResizeDroplet(string sizeSlug)
 	{
@@ -56,60 +115,6 @@ public sealed class DigitalOceanService
 
 		// Finally attempt to start the server back up, failing if it fails
 		return await StartDroplet();
-	}
-
-	public async Task<Size> GetDropletSize()
-	{
-		return (await client.Droplets.Get(DropletId)).Size;
-	}
-
-	public string GetSlugMonthlyCost(string sizeSlug)
-	{
-		return slugPrices.First(s => s.Item1 == sizeSlug).Item2;
-	}
-
-	public async Task<string> GetMonthToDateBalance()
-	{
-		var balance = await client.BalanceClient.Get();
-		return balance.MonthToDateBalance;
-	}
-
-	public async Task<bool> StopDroplet()
-	{
-		var action = await client.DropletActions.Shutdown(DropletId);
-		var success = await WaitForActionToComplete(action);
-
-		// If shutdown wasn't successful after interval, attempt a power off
-		if (!success)
-		{
-			action = await client.DropletActions.PowerOff(DropletId);
-			success = await WaitForActionToComplete(action, actionPollInterval);
-		}
-
-		return success;
-	}
-
-	public async Task<bool> StartDroplet()
-	{
-		var action = await client.DropletActions.PowerOn(DropletId);
-		return await WaitForActionToComplete(action);
-	}
-
-	public async Task<bool> RestartDroplet()
-	{
-		var action = await client.DropletActions.Reboot(DropletId);
-		return await WaitForActionToComplete(action);
-	}
-
-	public async Task PowerCycleDroplet(System.Action? callback = null)
-	{
-		var action = await client.DropletActions.PowerCycle(DropletId);
-		await WaitForActionToComplete(action);
-
-		if (callback is not null)
-		{
-			callback();
-		}
 	}
 
 	private async Task<bool> WaitForActionToComplete(
