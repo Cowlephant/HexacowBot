@@ -95,14 +95,21 @@ public sealed class DigitalOceanService
 
 	//public async Task HibernateDropnlet()
 
-	public async Task<bool> ResizeDroplet(string sizeSlug)
+	public async Task<ServerActionResult> ResizeDroplet(string sizeSlug)
 	{
+		var currentSize = await GetDropletSize();
+		if (currentSize.Slug == sizeSlug)
+		{
+			return new ServerActionResult(false, "The server is already this size.", LogLevel.Information);
+		}
+
 		// TODO: Check if there are running servers first and abort and notify if so
 		// Attempt to shut down droplet first, failing if it fails
 		var success = await StopDroplet();
 		if (!success)
 		{
-			return false;
+			return new ServerActionResult(
+				false, "The server could not be stopped while attempting to resize.", LogLevel.Critical);
 		}
 
 		// Attempt to resize the server, failing if it fails
@@ -110,11 +117,18 @@ public sealed class DigitalOceanService
 		success = await WaitForActionToComplete(action, pollingInterval: 5000, -1);
 		if (!success)
 		{
-			return false;
+			return new ServerActionResult(false, "The server resizing operation failed.", LogLevel.Critical);
 		}
 
 		// Finally attempt to start the server back up, failing if it fails
-		return await StartDroplet();
+		success = await StartDroplet();
+		if (!success)
+		{
+			return new ServerActionResult(
+				false, "The server could not be started again after resizing.", LogLevel.Critical);
+		}
+
+		return new ServerActionResult(true, "The server was successfully resized.", LogLevel.Information);
 	}
 
 	private async Task<bool> WaitForActionToComplete(

@@ -13,13 +13,18 @@ public sealed class GameServerModule : InteractionModuleBase
 
 	private readonly DigitalOceanService server;
 	private readonly IConfiguration configuration;
+	private readonly ILogger logger;
 
 	private List<IUserMessage> messagesToDelete;
 
-	public GameServerModule(DigitalOceanService digitalOceanService, IConfiguration configuration)
+	public GameServerModule(
+		DigitalOceanService digitalOceanService, 
+		IConfiguration configuration, 
+		ILogger<GameServerModule> logger)
 	{
 		server = digitalOceanService;
 		this.configuration = configuration;
+		this.logger = logger;
 
 		messagesToDelete = new List<IUserMessage>();
 	}
@@ -187,12 +192,20 @@ public sealed class GameServerModule : InteractionModuleBase
 		await DeferAsync(ephemeral: true);
 
 		messagesToDelete.Add(initialMessage);
-		var success = await server.ResizeDroplet(size.Slug);
+		var serverActionResult = await server.ResizeDroplet(size.Slug);
 
-		if (success)
+		await Context.Interaction.ModifyOriginalResponseAsync(message =>
 		{
+			message.Content = $"Selected {selectedSlug}";
+			message.Components = new ComponentBuilder().Build();
+		});
+
+		if (serverActionResult.Success)
+		{
+			logger.LogInformation(serverActionResult.Message);
+
 			var response = new StringBuilder();
-			response.AppendLine($"✅\tServer __**{server.DropletName}**__ has finished resizing to slug {size.Slug}.");
+			response.AppendLine($"✅\t{serverActionResult.Message}");
 			response.AppendLine("```");
 			response.AppendLine($"{"vCpus".PadRight(15, ' ')} {size.Vcpus}");
 			response.AppendLine($"{"Memory".PadRight(15, ' ')} {(size.Memory / 1024)}GB");
@@ -200,14 +213,14 @@ public sealed class GameServerModule : InteractionModuleBase
 			response.AppendLine($"{"Price Monthly".PadRight(15, ' ')} ${size.PriceMonthly}");
 			response.AppendLine("```");
 
-			await FollowupAsync(response.ToString());
+			await FollowupAsync(response.ToString(), ephemeral: false);
 		}
 		else
 		{
-			await FollowupAsync($"❌\tSomething went wrong trying to resize the server __**{server.DropletName}**__.");
-		}
+			logger.LogCritical(serverActionResult.Message);
 
-		await DeleteOriginalResponseAsync();
+			await FollowupAsync($"❌\t{serverActionResult.Message}", ephemeral: false);
+		}
 	}
 
 	[ComponentInteraction("server-abort")]
@@ -218,11 +231,8 @@ public sealed class GameServerModule : InteractionModuleBase
 		messagesToDelete.Add(await component.GetOriginalResponseAsync());
 		await component.UpdateAsync(message =>
 		{
-			var clearComponents = new ComponentBuilder()
-				.Build();
-
 			message.Content = "Aborted.";
-			message.Components = clearComponents;
+			message.Components = new ComponentBuilder().Build();
 		});
 	}
 
