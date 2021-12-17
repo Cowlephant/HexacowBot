@@ -1,4 +1,5 @@
 ﻿using DigitalOcean.API;
+using Discord;
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
@@ -62,6 +63,7 @@ public class Program
 
 		app.UseHttpsRedirection();
 
+		app.UseDefaultFiles();
 		app.UseStaticFiles();
 
 		app.UseRouting();

@@ -1,4 +1,5 @@
-﻿using Discord;
+﻿using DigitalOcean.API.Models.Responses;
+using Discord;
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
@@ -12,75 +13,20 @@ public sealed class GameServerModule : InteractionModuleBase
 
 	private readonly DigitalOceanService server;
 	private readonly IConfiguration configuration;
-	public MessageComponent retryButtonComponent = null!;
+	private readonly ILogger logger;
 
 	private List<IUserMessage> messagesToDelete;
 
-	public GameServerModule(DigitalOceanService digitalOceanService, IConfiguration configuration)
+	public GameServerModule(
+		DigitalOceanService digitalOceanService, 
+		IConfiguration configuration, 
+		ILogger<GameServerModule> logger)
 	{
 		server = digitalOceanService;
 		this.configuration = configuration;
+		this.logger = logger;
 
 		messagesToDelete = new List<IUserMessage>();
-	}
-
-	[RequireOwner]
-	[SlashCommand("server-resize", "Resizes server to a specified slug.")]
-	public async Task ResizeServerAsync(string sizeSlug)
-	{
-		await DeferAsync();
-
-		// Let user know if it's not an acceptable slug
-		var allowedSizes = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
-		if (!allowedSizes.Contains(sizeSlug))
-		{
-			await ReplyAsync("Provided slug was not recognized or allowed.");
-			return;
-		}
-
-		var initialMessage = await ReplyAsync($"Attempting to resize the server __**{server.DropletName}**__ to slug {sizeSlug}.");
-		messagesToDelete.Add(initialMessage);
-		var success = await server.ResizeDroplet(sizeSlug);
-
-		if (success)
-		{
-			var size = await server.GetDropletSize();
-			var response = new StringBuilder();
-			response.AppendLine($"✅\tServer __**{server.DropletName}**__ has finished resizing to slug {sizeSlug}.");
-			response.AppendLine("```");
-			response.AppendLine($"{"vCpus".PadRight(15, ' ')} {size.Vcpus}");
-			response.AppendLine($"{"Memory".PadRight(15, ' ')} {(size.Memory / 1024)}GB");
-			response.AppendLine($"{"Price Hourly".PadRight(15, ' ')} ${size.PriceHourly}");
-			response.AppendLine($"{"Price Monthly".PadRight(15, ' ')} ${size.PriceMonthly}");
-			response.AppendLine($"{"Monthly Balance".PadRight(15, ' ')} ${await server.GetMonthToDateBalance()}");
-			response.AppendLine("```");
-
-			await FollowupAsync(response.ToString());
-		}
-		else
-		{
-			await FollowupAsync($"❌\tSomething went wrong trying to resize the server __**{server.DropletName}**__.");
-		}
-	}
-
-	[SlashCommand("server-sizes", "Lists allowed droplet size slugs.")]
-	public async Task ServerSizesAsync()
-	{
-		var allowedSizes = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
-
-		var response = new StringBuilder();
-		response.AppendLine("__Allowed server size slugs__");
-		response.AppendLine("```");
-		foreach (var size in allowedSizes)
-		{
-			var monthlyPrice = server.GetSlugMonthlyCost(size);
-			var formatSlug = size.PadRight(15, ' ');
-			var formatPrice = $"{monthlyPrice.PadRight(5, ' ')} - monthly";
-			response.AppendLine($"{formatSlug}\t{formatPrice}");
-		}
-		response.AppendLine("```");
-
-		await RespondAsync(response.ToString(), ephemeral: true);
 	}
 
 	[SlashCommand("server-balance", "Shows the Month to Date balance for the account.")]
@@ -90,7 +36,29 @@ public sealed class GameServerModule : InteractionModuleBase
 		await RespondAsync(response, ephemeral: true);
 	}
 
-	[RequireOwner]
+	[SlashCommand("server-sizes", "Lists allowed droplet size slugs.")]
+	public async Task ServerSizesAsync()
+	{
+		var allowedSizes = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
+		var hibernateSize = configuration["DigitalOcean:HibernateSlug"];
+
+		var response = new StringBuilder();
+		response.AppendLine("__Allowed server size slugs__");
+		response.AppendLine("```");
+		foreach (var sizeSlug in allowedSizes)
+		{
+			var size = server.GetSlugSize(sizeSlug);
+
+			var formatSlug = sizeSlug.PadRight(15, ' ');
+			var formatPrice = $"{size.PriceMonthly.ToString().PadRight(5, ' ')} - monthly";
+			response.AppendLine($"{formatSlug}\t{formatPrice}");
+		}
+		response.AppendLine("```");
+
+		await RespondAsync(response.ToString(), ephemeral: true);
+	}
+
+	//[RequireOwner]
 	[SlashCommand("server-start", "Boot up the server.")]
 	[ComponentInteraction("server-start-retry")]
 	public async Task ServerStartAsync()
@@ -111,7 +79,6 @@ public sealed class GameServerModule : InteractionModuleBase
 		{
 			var retryButtonComponent = new ComponentBuilder()
 				.WithButton("Retry", "server-start-retry", ButtonStyle.Primary)
-				.WithButton("Abort", "server-abort", ButtonStyle.Danger)
 				.Build();
 
 			await ReplyAsync($"❌\t⬆️🖥 Something went wrong trying to boot up the server __**{server.DropletName}**__.");
@@ -119,7 +86,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 	}
 
-	[RequireOwner]
+	//[RequireOwner]
 	[SlashCommand("server-stop", "Shuts down the server safely.")]
 	[ComponentInteraction("server-stop-retry")]
 	public async Task ServerStopAsync()
@@ -148,7 +115,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 	}
 
-	[RequireOwner]
+	//[RequireOwner]
 	[SlashCommand("server-restart", "Restarts the server safely.")]
 	[ComponentInteraction("server-restart-retry")]
 	public async Task ServerRestartAsync()
@@ -177,23 +144,100 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 	}
 
+	[SlashCommand("server-resize", "Resizes server to a specified slug.")]
+	public async Task ResizeServerAsync()
+	{
+		await DeferAsync(ephemeral: true);
+
+		var allowedSizes = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
+
+		var sizeSlugOptions = new List<SelectMenuOptionBuilder>(allowedSizes.Length);
+
+		foreach (var sizeSlug in allowedSizes)
+		{
+			var size = server.GetSlugSize(sizeSlug);
+			var description =
+				$"vCpus: {size.Vcpus} | RAM: {size.Memory} | Monthly: ${size.PriceMonthly} | Hourly: ${size.PriceHourly}";
+
+			var slugOption = new SelectMenuOptionBuilder()
+				.WithLabel(sizeSlug)
+				.WithValue(sizeSlug)
+				.WithDescription(description);
+
+			sizeSlugOptions.Add(slugOption);
+		}
+
+		var slugSelectMenu = new SelectMenuBuilder()
+			.WithCustomId("server-resize-select")
+			.WithOptions(sizeSlugOptions);
+
+		var slugSelectComponent = new ComponentBuilder()
+			.WithSelectMenu(slugSelectMenu)
+			.Build();
+
+		await FollowupAsync("Please select a slug size to resize to.", ephemeral: false, component: slugSelectComponent);
+	}
+
+	//[RequireOwner]
+	[ComponentInteraction("server-resize-select")]
+	public async Task ResizeServerSelectAsync(string[] selectedSlugs)
+	{
+		var selectedSlug = selectedSlugs.First();
+
+		var size = server.GetSlugSize(selectedSlug);
+
+		var initialMessage = await ReplyAsync(
+			$"Attempting to resize the server __**{server.DropletName}**__ to slug {size.Slug}.");
+
+		await DeferAsync(ephemeral: true);
+
+		messagesToDelete.Add(initialMessage);
+		var serverActionResult = await server.ResizeDroplet(size.Slug);
+
+		await Context.Interaction.ModifyOriginalResponseAsync(message =>
+		{
+			message.Content = $"Selected {selectedSlug}";
+			message.Components = new ComponentBuilder().Build();
+		});
+
+		if (serverActionResult.Success)
+		{
+			logger.LogInformation(serverActionResult.Message);
+
+			var response = new StringBuilder();
+			response.AppendLine($"✅\t{serverActionResult.Message}");
+			response.AppendLine("```");
+			response.AppendLine($"{"vCpus".PadRight(15, ' ')} {size.Vcpus}");
+			response.AppendLine($"{"Memory".PadRight(15, ' ')} {(size.Memory / 1024)}GB");
+			response.AppendLine($"{"Price Hourly".PadRight(15, ' ')} ${size.PriceHourly}");
+			response.AppendLine($"{"Price Monthly".PadRight(15, ' ')} ${size.PriceMonthly}");
+			response.AppendLine("```");
+
+			await FollowupAsync(response.ToString(), ephemeral: false);
+		}
+		else
+		{
+			logger.LogCritical(serverActionResult.Message);
+
+			await FollowupAsync($"❌\t{serverActionResult.Message}", ephemeral: false);
+		}
+	}
+
 	[ComponentInteraction("server-abort")]
 	public async Task ServerAbortAsync()
 	{
 		var component = (Context.Interaction as SocketMessageComponent)!;
 
+		messagesToDelete.Add(await component.GetOriginalResponseAsync());
 		await component.UpdateAsync(message =>
 		{
-			var clearComponents = new ComponentBuilder()
-				.Build();
-
 			message.Content = "Aborted.";
-			message.Components = clearComponents;
+			message.Components = new ComponentBuilder().Build();
 		});
 	}
 
-	[RequireOwner]
-	[Command("server-powercycle")]
+	//[RequireOwner]
+	//[Command("server-powercycle")]
 	public async Task ServerPowerCycleAsync()
 	{
 		_ = server.PowerCycleDroplet(async () => { await ReplyAsync("Server is restarted."); });
@@ -225,7 +269,7 @@ public sealed class GameServerModule : InteractionModuleBase
 
 	public override async void AfterExecute(ICommandInfo command)
 	{
-		foreach(var message in messagesToDelete)
+		foreach (var message in messagesToDelete)
 		{
 			await message.DeleteAsync();
 		}

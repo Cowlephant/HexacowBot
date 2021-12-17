@@ -15,6 +15,9 @@ public sealed class DigitalOceanService
 	public string DropletName { get; private set; } = "Not Named - Rename me in config";
 	public bool IsBusy { get; private set; }
 
+	private HashSet<(string, Size)> slugSizes = null!;
+	public IEnumerable<(string, Size)> SlugSizes => SlugSizes.AsEnumerable();
+
 	private HashSet<(string, string)> slugPrices = null!;
 	public IEnumerable<(string, string)> SlugPrices => slugPrices.AsEnumerable();
 
@@ -31,31 +34,9 @@ public sealed class DigitalOceanService
 		DropletId = long.Parse(configuration["DigitalOcean:DropletId"]);
 		DropletName = configuration["DigitalOcean:DropletName"];
 
-		slugPrices = (await client.Sizes.GetAll())
-			.Select(s => (s.Slug, $"${s.PriceMonthly}"))
-			.ToHashSet<(string, string)>();
-	}
-
-	public async Task<bool> ResizeDroplet(string sizeSlug)
-	{
-		// TODO: Check if there are running servers first and abort and notify if so
-		// Attempt to shut down droplet first, failing if it fails
-		var success = await StopDroplet();
-		if (!success)
-		{
-			return false;
-		}
-
-		// Attempt to resize the server, failing if it fails
-		var action = await client.DropletActions.Resize(DropletId, sizeSlug, resizeDisk: false);
-		success = await WaitForActionToComplete(action, pollingInterval: 5000, -1);
-		if (!success)
-		{
-			return false;
-		}
-
-		// Finally attempt to start the server back up, failing if it fails
-		return await StartDroplet();
+		slugSizes = (await client.Sizes.GetAll())
+			.Select(s => (s.Slug, s))
+			.ToHashSet<(string, Size)>();
 	}
 
 	public async Task<Size> GetDropletSize()
@@ -63,15 +44,21 @@ public sealed class DigitalOceanService
 		return (await client.Droplets.Get(DropletId)).Size;
 	}
 
-	public string GetSlugMonthlyCost(string sizeSlug)
+	public Size GetSlugSize(string sizeSlug)
 	{
-		return slugPrices.First(s => s.Item1 == sizeSlug).Item2;
+		return slugSizes.FirstOrDefault(s => s.Item1 == sizeSlug).Item2;
 	}
 
 	public async Task<string> GetMonthToDateBalance()
 	{
 		var balance = await client.BalanceClient.Get();
 		return balance.MonthToDateBalance;
+	}
+
+	public async Task<bool> StartDroplet()
+	{
+		var action = await client.DropletActions.PowerOn(DropletId);
+		return await WaitForActionToComplete(action);
 	}
 
 	public async Task<bool> StopDroplet()
@@ -89,12 +76,6 @@ public sealed class DigitalOceanService
 		return success;
 	}
 
-	public async Task<bool> StartDroplet()
-	{
-		var action = await client.DropletActions.PowerOn(DropletId);
-		return await WaitForActionToComplete(action);
-	}
-
 	public async Task<bool> RestartDroplet()
 	{
 		var action = await client.DropletActions.Reboot(DropletId);
@@ -110,6 +91,44 @@ public sealed class DigitalOceanService
 		{
 			callback();
 		}
+	}
+
+	//public async Task HibernateDropnlet()
+
+	public async Task<ServerActionResult> ResizeDroplet(string sizeSlug)
+	{
+		var currentSize = await GetDropletSize();
+		if (currentSize.Slug == sizeSlug)
+		{
+			return new ServerActionResult(false, "The server is already this size.", LogLevel.Information);
+		}
+
+		// TODO: Check if there are running servers first and abort and notify if so
+		// Attempt to shut down droplet first, failing if it fails
+		var success = await StopDroplet();
+		if (!success)
+		{
+			return new ServerActionResult(
+				false, "The server could not be stopped while attempting to resize.", LogLevel.Critical);
+		}
+
+		// Attempt to resize the server, failing if it fails
+		var action = await client.DropletActions.Resize(DropletId, sizeSlug, resizeDisk: false);
+		success = await WaitForActionToComplete(action, pollingInterval: 5000, -1);
+		if (!success)
+		{
+			return new ServerActionResult(false, "The server resizing operation failed.", LogLevel.Critical);
+		}
+
+		// Finally attempt to start the server back up, failing if it fails
+		success = await StartDroplet();
+		if (!success)
+		{
+			return new ServerActionResult(
+				false, "The server could not be started again after resizing.", LogLevel.Critical);
+		}
+
+		return new ServerActionResult(true, "The server was successfully resized.", LogLevel.Information);
 	}
 
 	private async Task<bool> WaitForActionToComplete(
