@@ -10,6 +10,7 @@ namespace HexacowBot;
 public sealed class GameServerModule : InteractionModuleBase
 {
 	private const string ownerError = "During development this bot is only usable by the creator.";
+	private const string retryPrompt = "Would you like to retry?";
 
 	private readonly DigitalOceanService server;
 	private readonly IConfiguration configuration;
@@ -32,7 +33,7 @@ public sealed class GameServerModule : InteractionModuleBase
 	[SlashCommand("server-balance", "Shows the Month to Date balance for the account.")]
 	public async Task ServerBalanceAsync()
 	{
-		var response = $"```Monthly Balance\t ${await server.GetMonthToDateBalance()}```";
+		var response = $"```Monthly Balance\t {await server.GetMonthToDateBalance()}```";
 		await RespondAsync(response, ephemeral: true);
 	}
 
@@ -69,11 +70,13 @@ public sealed class GameServerModule : InteractionModuleBase
 
 		var initialMessage = await ReplyAsync($"Attempting to boot up the server __**{server.DropletName}**__.");
 		messagesToDelete.Add(initialMessage);
-		var success = await server.StartDroplet();
+		var serverActionResult = await server.StartDroplet();
 
-		if (success)
+		if (serverActionResult.Success)
 		{
-			await FollowupAsync($"✅\t⬆️🖥 Server __**{server.DropletName}**__ successfully booted up.");
+			logger.Log(serverActionResult.Severity, serverActionResult.Message);
+
+			await FollowupAsync($"✅\t⬆️🖥\t{serverActionResult.Message}");
 		}
 		else
 		{
@@ -81,8 +84,10 @@ public sealed class GameServerModule : InteractionModuleBase
 				.WithButton("Retry", "server-start-retry", ButtonStyle.Primary)
 				.Build();
 
-			await ReplyAsync($"❌\t⬆️🖥 Something went wrong trying to boot up the server __**{server.DropletName}**__.");
-			await FollowupAsync("Would you like to retry?", ephemeral: true, component: retryButtonComponent);
+			logger.Log(serverActionResult.Severity, serverActionResult.Message);
+
+			await ReplyAsync($"❌\t⬆️🖥\t{serverActionResult.Message}");
+			await FollowupAsync(retryPrompt, ephemeral: true, component: retryButtonComponent);
 		}
 	}
 
@@ -97,11 +102,13 @@ public sealed class GameServerModule : InteractionModuleBase
 
 		var initialMessage = await ReplyAsync($"Attempting to shut down the server __**{server.DropletName}**__.");
 		messagesToDelete.Add(initialMessage);
-		var success = await server.StopDroplet();
+		var serverActionResult = await server.StopDroplet();
 
-		if (success)
+		if (serverActionResult.Success)
 		{
-			await FollowupAsync($"✅\t⬇️🖥 Server __**{server.DropletName}**__ successfully shut down.");
+			logger.Log(serverActionResult.Severity, serverActionResult.Message);
+
+			await FollowupAsync($"✅\t⬇️🖥\t{serverActionResult.Message}");
 		}
 		else
 		{
@@ -110,8 +117,10 @@ public sealed class GameServerModule : InteractionModuleBase
 				.WithButton("Abort", "server-abort", ButtonStyle.Danger)
 				.Build();
 
-			await ReplyAsync($"❌\t⬇️🖥 Something went wrong trying to shut down the server __**{server.DropletName}**__.");
-			await FollowupAsync("Would you like to retry?", ephemeral: true, component: retryButtonComponent);
+			logger.Log(serverActionResult.Severity, serverActionResult.Message);
+
+			await ReplyAsync($"❌\t⬇️🖥\t{serverActionResult.Message}");
+			await FollowupAsync(retryPrompt, ephemeral: true, component: retryButtonComponent);
 		}
 	}
 
@@ -126,11 +135,13 @@ public sealed class GameServerModule : InteractionModuleBase
 
 		var initialMessage = await ReplyAsync($"Attempting to restart the server __**{server.DropletName}**__.");
 		messagesToDelete.Add(initialMessage);
-		var success = await server.RestartDroplet();
+		var serverActionResult = await server.RestartDroplet();
 
-		if (success)
+		if (serverActionResult.Success)
 		{
-			await FollowupAsync($"✅\t🔄🖥 Server __**{server.DropletName}**__ successfully restarted.");
+			logger.Log(serverActionResult.Severity, serverActionResult.Message);
+
+			await FollowupAsync($"✅\t🔄🖥\t{serverActionResult.Message}");
 		}
 		else
 		{
@@ -139,8 +150,10 @@ public sealed class GameServerModule : InteractionModuleBase
 				.WithButton("Abort", "server-abort", ButtonStyle.Danger)
 				.Build();
 
-			await ReplyAsync($"❌\t🔄🖥 Something went wrong trying to restart the server __**{server.DropletName}**__.");
-			await FollowupAsync("Would you like to retry?", ephemeral: true, component: retryButtonComponent);
+			logger.Log(serverActionResult.Severity, serverActionResult.Message);
+			
+			await ReplyAsync($"❌\t🔄🖥\t{serverActionResult.Message}");
+			await FollowupAsync(retryPrompt, ephemeral: true, component: retryButtonComponent);
 		}
 	}
 
@@ -191,18 +204,18 @@ public sealed class GameServerModule : InteractionModuleBase
 
 		await DeferAsync(ephemeral: true);
 
-		messagesToDelete.Add(initialMessage);
-		var serverActionResult = await server.ResizeDroplet(size.Slug);
-
 		await Context.Interaction.ModifyOriginalResponseAsync(message =>
 		{
 			message.Content = $"Selected {selectedSlug}";
 			message.Components = new ComponentBuilder().Build();
 		});
 
+		messagesToDelete.Add(initialMessage);
+		var serverActionResult = await server.ResizeDroplet(size.Slug);
+
 		if (serverActionResult.Success)
 		{
-			logger.LogInformation(serverActionResult.Message);
+			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
 			var response = new StringBuilder();
 			response.AppendLine($"✅\t{serverActionResult.Message}");
@@ -217,7 +230,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 		else
 		{
-			logger.LogCritical(serverActionResult.Message);
+			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
 			await FollowupAsync($"❌\t{serverActionResult.Message}", ephemeral: false);
 		}
