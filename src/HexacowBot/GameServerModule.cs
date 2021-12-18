@@ -162,19 +162,16 @@ public sealed class GameServerModule : InteractionModuleBase
 	{
 		await DeferAsync(ephemeral: true);
 
-		var allowedSizes = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
+		var sizeSlugOptions = new List<SelectMenuOptionBuilder>(server.AllowedSlugSizes.Count());
 
-		var sizeSlugOptions = new List<SelectMenuOptionBuilder>(allowedSizes.Length);
-
-		foreach (var sizeSlug in allowedSizes)
+		foreach (var size in server.AllowedSlugSizes)
 		{
-			var size = server.GetSlugSize(sizeSlug);
 			var description =
 				$"vCpus: {size.Vcpus} | RAM: {size.Memory} | Monthly: ${size.PriceMonthly} | Hourly: ${size.PriceHourly}";
 
 			var slugOption = new SelectMenuOptionBuilder()
-				.WithLabel(sizeSlug)
-				.WithValue(sizeSlug)
+				.WithLabel(size.Slug)
+				.WithValue(size.Slug)
 				.WithDescription(description);
 
 			sizeSlugOptions.Add(slugOption);
