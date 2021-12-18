@@ -43,9 +43,8 @@ public sealed class DigitalOceanService
 
 		var allowedSlugs = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
 
-		allowedSlugSizes = slugSizes.Where(s => allowedSlugs
-			.Contains(s.Item1))
-			.Select(s => s.Item2)
+		allowedSlugSizes = allowedSlugs.Select(allowed => slugSizes
+			.FirstOrDefault(size => allowed == size.Item1).Item2)
 			.ToHashSet();
 	}
 
