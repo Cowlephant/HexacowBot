@@ -3,6 +3,7 @@ using Discord;
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
+using System.Diagnostics;
 using System.Text;
 
 namespace HexacowBot;
@@ -19,8 +20,8 @@ public sealed class GameServerModule : InteractionModuleBase
 	private List<IUserMessage> messagesToDelete;
 
 	public GameServerModule(
-		DigitalOceanService digitalOceanService, 
-		IConfiguration configuration, 
+		DigitalOceanService digitalOceanService,
+		IConfiguration configuration,
 		ILogger<GameServerModule> logger)
 	{
 		server = digitalOceanService;
@@ -40,31 +41,31 @@ public sealed class GameServerModule : InteractionModuleBase
 	[SlashCommand("server-sizes", "Lists allowed droplet size slugs.")]
 	public async Task ServerSizesAsync()
 	{
-		var allowedSizes = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
-		var hibernateSize = configuration["DigitalOcean:HibernateSlug"];
+		var allowedSizes = server.AllowedSlugSizes;
+		var hibernateSize = server.HibernateSize;
 
 		var response = new StringBuilder();
 		response.AppendLine("__Allowed server size slugs__");
 		response.AppendLine("```");
-		foreach (var sizeSlug in allowedSizes)
+		foreach (var size in allowedSizes)
 		{
-			var size = server.GetSlugSize(sizeSlug);
-
-			var formatSlug = sizeSlug.PadRight(15, ' ');
+			var formatSlug = size.Slug.PadRight(15, ' ');
 			var formatPrice = $"{size.PriceMonthly.ToString().PadRight(5, ' ')} - monthly";
-			response.AppendLine($"{formatSlug}\t{formatPrice}");
+			var formatHibernation = size == hibernateSize ? "\t💤" : string.Empty;
+
+			response.AppendLine($"{formatSlug}\t{formatPrice}{formatHibernation}");
 		}
 		response.AppendLine("```");
 
 		await RespondAsync(response.ToString(), ephemeral: true);
 	}
 
-	//[RequireOwner]
+	[RequireOwner]
 	[SlashCommand("server-start", "Boot up the server.")]
 	[ComponentInteraction("server-start-retry")]
 	public async Task ServerStartAsync()
 	{
-		await DeferAsync();
+		await DeferAsync(ephemeral: true);
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
@@ -91,12 +92,12 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 	}
 
-	//[RequireOwner]
+	[RequireOwner]
 	[SlashCommand("server-stop", "Shuts down the server safely.")]
 	[ComponentInteraction("server-stop-retry")]
 	public async Task ServerStopAsync()
 	{
-		await DeferAsync();
+		await DeferAsync(ephemeral: true);
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
@@ -124,12 +125,12 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 	}
 
-	//[RequireOwner]
+	[RequireOwner]
 	[SlashCommand("server-restart", "Restarts the server safely.")]
 	[ComponentInteraction("server-restart-retry")]
 	public async Task ServerRestartAsync()
 	{
-		await DeferAsync();
+		await DeferAsync(ephemeral: true);
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
@@ -151,12 +152,13 @@ public sealed class GameServerModule : InteractionModuleBase
 				.Build();
 
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
-			
+
 			await ReplyAsync($"❌\t🔄🖥\t{serverActionResult.Message}");
 			await FollowupAsync(retryPrompt, ephemeral: true, component: retryButtonComponent);
 		}
 	}
 
+	[RequireOwner]
 	[SlashCommand("server-resize", "Resizes server to a specified slug.")]
 	public async Task ResizeServerAsync()
 	{
@@ -188,7 +190,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		await FollowupAsync("Please select a slug size to resize to.", ephemeral: false, component: slugSelectComponent);
 	}
 
-	//[RequireOwner]
+	[RequireOwner]
 	[ComponentInteraction("server-resize-select")]
 	public async Task ResizeServerSelectAsync(string[] selectedSlugs)
 	{
@@ -260,7 +262,6 @@ public sealed class GameServerModule : InteractionModuleBase
 		{
 			// We should be attempting to retry, so we'll remove the original interaction
 			var component = (interaction as SocketMessageComponent)!;
-			//await component.DeferAsync();
 
 			var originalResponse = await component.GetOriginalResponseAsync();
 			if (originalResponse is not null)

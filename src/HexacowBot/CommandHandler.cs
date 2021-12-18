@@ -16,14 +16,14 @@ public sealed class CommandHandler
 
 	public CommandHandler(
 		DiscordSocketClient client,
-		CommandService commands,
-		InteractionService commandsInteraction,
+		CommandService commandService,
+		InteractionService interactionService,
 		IServiceProvider serviceProvider,
 		IConfiguration configuration)
 	{
 		this.client = client;
-		this.commandService = commands;
-		this.interactionService = commandsInteraction;
+		this.commandService = commandService;
+		this.interactionService = interactionService;
 		this.serviceProvider = serviceProvider;
 		this.configuration = configuration;
 	}

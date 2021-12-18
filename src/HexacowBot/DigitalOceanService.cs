@@ -15,14 +15,16 @@ public sealed class DigitalOceanService
 	public string DropletName { get; private set; } = "Not Named - Rename me in config";
 	public bool IsBusy { get; private set; }
 
+	public Size HibernateSize { get; private set; } = null!;
+
 	private HashSet<(string, Size)> slugSizes = null!;
 	public IEnumerable<(string, Size)> SlugSizes => slugSizes.AsEnumerable();
 
-	private HashSet<Size> allowedSlugSizes = null!;
-	public IEnumerable<Size> AllowedSlugSizes => allowedSlugSizes.AsEnumerable();
+	private HashSet<Size> allowedSizes = null!;
+	public IEnumerable<Size> AllowedSlugSizes => allowedSizes.AsEnumerable();
 
-	private HashSet<(string, string)> slugPrices = null!;
-	public IEnumerable<(string, string)> SlugPrices => slugPrices.AsEnumerable();
+	private HashSet<(string, string)> sizePrices = null!;
+	public IEnumerable<(string, string)> SlugPrices => sizePrices.AsEnumerable();
 
 	public DigitalOceanService(IConfiguration configuration, DigitalOceanClient client)
 	{
@@ -42,10 +44,18 @@ public sealed class DigitalOceanService
 			.ToHashSet<(string, Size)>();
 
 		var allowedSlugs = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
-
-		allowedSlugSizes = allowedSlugs.Select(allowed => slugSizes
+		allowedSizes = allowedSlugs.Select(allowed => slugSizes
 			.FirstOrDefault(size => allowed == size.Item1).Item2)
 			.ToHashSet();
+
+		var hibernateSlug = configuration["DigitalOcean:HibernateSlug"];
+		HibernateSize = slugSizes.First(s => s.Item1 == hibernateSlug).Item2;
+
+		var hibernateSlugNotAllowed = !(allowedSizes.Any(s => s == HibernateSize));
+		if (hibernateSlugNotAllowed)
+		{
+			throw new DigitalOceanException("Hibernate slug is not in configured list of allowed slugs.");
+		}
 	}
 
 	public async Task<Size> GetDropletSize()
@@ -136,8 +146,9 @@ public sealed class DigitalOceanService
 
 	public async Task<ServerActionResult> ResizeDroplet(string sizeSlug)
 	{
-		var isDisallowedSlugSize = !(allowedSlugSizes.Any(s => s.Slug == sizeSlug));
+		var isDisallowedSlugSize = !(allowedSizes.Any(s => s.Slug == sizeSlug));
 		var currentSize = await GetDropletSize();
+
 		if (isDisallowedSlugSize)
 		{
 			return new ServerActionResult(
