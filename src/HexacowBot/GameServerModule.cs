@@ -49,11 +49,16 @@ public sealed class GameServerModule : InteractionModuleBase
 		response.AppendLine("```");
 		foreach (var size in allowedSizes)
 		{
-			var formatSlug = size.Slug.PadRight(15, ' ');
-			var formatPrice = $"{size.PriceMonthly.ToString().PadRight(5, ' ')} - monthly";
-			var formatHibernation = size == hibernateSize ? "\t💤" : string.Empty;
+			var slug = size.Slug;
+			var active = size.Slug == server.CurrentSize.Slug ? "✅" : string.Empty;
+			var hibernation = size == hibernateSize ? "💤" : string.Empty;
+			var vCpus = $"vCpus: {size.Vcpus}";
+			var ram = $"RAM: {(size.Memory / 1024)}GB";
+			var priceMonthly = $"Monthly: ${size.PriceMonthly}";
 
-			response.AppendLine($"{formatSlug}\t{formatPrice}{formatHibernation}");
+			response.AppendLine($"{slug}\t{active}{hibernation}");
+			response.AppendLine($"{vCpus}\t{ram}\t{priceMonthly}");
+			response.AppendLine();
 		}
 		response.AppendLine("```");
 
@@ -65,7 +70,7 @@ public sealed class GameServerModule : InteractionModuleBase
 	[ComponentInteraction("server-start-retry")]
 	public async Task ServerStartAsync()
 	{
-		await DeferAsync(ephemeral: true);
+		await DeferAsync();
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
@@ -77,7 +82,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		{
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await FollowupAsync($"✅\t⬆️🖥\t{serverActionResult.Message}");
+			await FollowupAsync($"✅\t⬆️🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 		}
 		else
 		{
@@ -87,7 +92,7 @@ public sealed class GameServerModule : InteractionModuleBase
 
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await ReplyAsync($"❌\t⬆️🖥\t{serverActionResult.Message}");
+			await ReplyAsync($"❌\t⬆️🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 			await FollowupAsync(retryPrompt, ephemeral: true, component: retryButtonComponent);
 		}
 	}
@@ -97,7 +102,7 @@ public sealed class GameServerModule : InteractionModuleBase
 	[ComponentInteraction("server-stop-retry")]
 	public async Task ServerStopAsync()
 	{
-		await DeferAsync(ephemeral: true);
+		await DeferAsync();
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
@@ -109,7 +114,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		{
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await FollowupAsync($"✅\t⬇️🖥\t{serverActionResult.Message}");
+			await FollowupAsync($"✅\t⬇️🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 		}
 		else
 		{
@@ -120,7 +125,7 @@ public sealed class GameServerModule : InteractionModuleBase
 
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await ReplyAsync($"❌\t⬇️🖥\t{serverActionResult.Message}");
+			await ReplyAsync($"❌\t⬇️🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 			await FollowupAsync(retryPrompt, ephemeral: true, component: retryButtonComponent);
 		}
 	}
@@ -130,7 +135,7 @@ public sealed class GameServerModule : InteractionModuleBase
 	[ComponentInteraction("server-restart-retry")]
 	public async Task ServerRestartAsync()
 	{
-		await DeferAsync(ephemeral: true);
+		await DeferAsync();
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
@@ -142,7 +147,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		{
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await FollowupAsync($"✅\t🔄🖥\t{serverActionResult.Message}");
+			await FollowupAsync($"✅\t🔄🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 		}
 		else
 		{
@@ -153,7 +158,7 @@ public sealed class GameServerModule : InteractionModuleBase
 
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await ReplyAsync($"❌\t🔄🖥\t{serverActionResult.Message}");
+			await ReplyAsync($"❌\t🔄🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 			await FollowupAsync(retryPrompt, ephemeral: true, component: retryButtonComponent);
 		}
 	}
@@ -217,7 +222,7 @@ public sealed class GameServerModule : InteractionModuleBase
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
 			var response = new StringBuilder();
-			response.AppendLine($"✅\t{serverActionResult.Message}");
+			response.AppendLine($"✅\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 			response.AppendLine("```");
 			response.AppendLine($"{"vCpus".PadRight(15, ' ')} {size.Vcpus}");
 			response.AppendLine($"{"Memory".PadRight(15, ' ')} {(size.Memory / 1024)}GB");
@@ -231,7 +236,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		{
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await FollowupAsync($"❌\t{serverActionResult.Message}", ephemeral: false);
+			await FollowupAsync($"❌\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}", ephemeral: false);
 		}
 	}
 
@@ -248,7 +253,6 @@ public sealed class GameServerModule : InteractionModuleBase
 		});
 	}
 
-	//[RequireOwner]
 	//[Command("server-powercycle")]
 	public async Task ServerPowerCycleAsync()
 	{
@@ -276,6 +280,16 @@ public sealed class GameServerModule : InteractionModuleBase
 				});
 			}
 		}
+	}
+
+	private string GetElapsedFriendly(TimeSpan timespan)
+	{
+		if (timespan == TimeSpan.Zero)
+		{
+			return string.Empty;
+		}
+
+		return $"({Math.Round(timespan.TotalSeconds, 0)} sec)";
 	}
 
 	public override async void AfterExecute(ICommandInfo command)
