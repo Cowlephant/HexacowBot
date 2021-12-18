@@ -204,14 +204,14 @@ public sealed class GameServerModule : InteractionModuleBase
 
 		await DeferAsync(ephemeral: true);
 
+		messagesToDelete.Add(initialMessage);
+		var serverActionResult = await server.ResizeDroplet(size.Slug);
+
 		await Context.Interaction.ModifyOriginalResponseAsync(message =>
 		{
 			message.Content = $"Selected {selectedSlug}";
 			message.Components = new ComponentBuilder().Build();
 		});
-
-		messagesToDelete.Add(initialMessage);
-		var serverActionResult = await server.ResizeDroplet(size.Slug);
 
 		if (serverActionResult.Success)
 		{
