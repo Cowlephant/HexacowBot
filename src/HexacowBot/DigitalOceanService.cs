@@ -16,7 +16,10 @@ public sealed class DigitalOceanService
 	public bool IsBusy { get; private set; }
 
 	private HashSet<(string, Size)> slugSizes = null!;
-	public IEnumerable<(string, Size)> SlugSizes => SlugSizes.AsEnumerable();
+	public IEnumerable<(string, Size)> SlugSizes => slugSizes.AsEnumerable();
+
+	private HashSet<Size> allowedSlugSizes = null!;
+	public IEnumerable<Size> AllowedSlugSizes => allowedSlugSizes.AsEnumerable();
 
 	private HashSet<(string, string)> slugPrices = null!;
 	public IEnumerable<(string, string)> SlugPrices => slugPrices.AsEnumerable();
@@ -37,6 +40,13 @@ public sealed class DigitalOceanService
 		slugSizes = (await client.Sizes.GetAll())
 			.Select(s => (s.Slug, s))
 			.ToHashSet<(string, Size)>();
+
+		var allowedSlugs = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
+
+		allowedSlugSizes = slugSizes.Where(s => allowedSlugs
+			.Contains(s.Item1))
+			.Select(s => s.Item2)
+			.ToHashSet();
 	}
 
 	public async Task<Size> GetDropletSize()
@@ -125,11 +135,15 @@ public sealed class DigitalOceanService
 		}
 	}
 
-	//public async Task HibernateDropnlet()
-
 	public async Task<ServerActionResult> ResizeDroplet(string sizeSlug)
 	{
+		var isDisallowedSlugSize = !(allowedSlugSizes.Any(s => s.Slug == sizeSlug));
 		var currentSize = await GetDropletSize();
+		if (isDisallowedSlugSize)
+		{
+			return new ServerActionResult(
+				false, $"The specified slug size is not a valid size for server ({DropletName})", LogLevel.Warning);
+		}
 		if (currentSize.Slug == sizeSlug)
 		{
 			return new ServerActionResult(
