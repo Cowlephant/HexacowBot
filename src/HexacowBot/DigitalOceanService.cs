@@ -52,34 +52,66 @@ public sealed class DigitalOceanService
 	public async Task<string> GetMonthToDateBalance()
 	{
 		var balance = await client.BalanceClient.Get();
-		return balance.MonthToDateBalance;
+		return $"${balance.MonthToDateBalance}";
 	}
 
-	public async Task<bool> StartDroplet()
+	public async Task<ServerActionResult> StartDroplet()
 	{
 		var action = await client.DropletActions.PowerOn(DropletId);
-		return await WaitForActionToComplete(action);
-	}
-
-	public async Task<bool> StopDroplet()
-	{
-		var action = await client.DropletActions.Shutdown(DropletId);
 		var success = await WaitForActionToComplete(action);
 
-		// If shutdown wasn't successful after interval, attempt a power off
-		if (!success)
+		if (success)
 		{
-			action = await client.DropletActions.PowerOff(DropletId);
-			success = await WaitForActionToComplete(action, actionPollInterval);
+			return new ServerActionResult(
+				true, $"The server ({DropletName}) was successfully started.", LogLevel.Information);
 		}
-
-		return success;
+		else
+		{
+			return new ServerActionResult(
+				false, $"The server ({DropletName}) start operation failed.", LogLevel.Critical);
+		}
 	}
 
-	public async Task<bool> RestartDroplet()
+	public async Task<ServerActionResult> StopDroplet()
+	{
+		var action = await client.DropletActions.Shutdown(DropletId);
+		var shutdownFailed = !(await WaitForActionToComplete(action));
+
+		// If shutdown wasn't successful after interval, attempt a power off
+		if (shutdownFailed)
+		{
+			action = await client.DropletActions.PowerOff(DropletId);
+			var powerOffFailed = !(await WaitForActionToComplete(action, actionPollInterval));
+
+			if (powerOffFailed)
+			{
+				return new ServerActionResult(
+					false, $"The server ({DropletName}) stop operation failed.", LogLevel.Critical);
+			}
+
+			return new ServerActionResult(
+				true, $"The server ({DropletName}) was stopped ungracefully.", LogLevel.Warning);
+		}
+
+		return new ServerActionResult(
+			true, $"The server ({DropletName}) was successfully stopped.", LogLevel.Information);
+	}
+
+	public async Task<ServerActionResult> RestartDroplet()
 	{
 		var action = await client.DropletActions.Reboot(DropletId);
-		return await WaitForActionToComplete(action);
+		var success = await WaitForActionToComplete(action);
+
+		if (success)
+		{
+			return new ServerActionResult(
+				true, $"The server ({DropletName}) was successfully restarted.", LogLevel.Information);
+		}
+		else
+		{
+			return new ServerActionResult(
+				false, $"The server ({DropletName}) reboot operation failed.", LogLevel.Critical);
+		}
 	}
 
 	public async Task PowerCycleDroplet(System.Action? callback = null)
@@ -100,35 +132,38 @@ public sealed class DigitalOceanService
 		var currentSize = await GetDropletSize();
 		if (currentSize.Slug == sizeSlug)
 		{
-			return new ServerActionResult(false, "The server is already this size.", LogLevel.Information);
+			return new ServerActionResult(
+				false, $"The server ({DropletName}) is already this size.", LogLevel.Information);
 		}
 
 		// TODO: Check if there are running servers first and abort and notify if so
 		// Attempt to shut down droplet first, failing if it fails
-		var success = await StopDroplet();
-		if (!success)
+		var stopFailed = !(await StopDroplet()).Success;
+		if (stopFailed)
 		{
 			return new ServerActionResult(
-				false, "The server could not be stopped while attempting to resize.", LogLevel.Critical);
+				false, $"The server ({DropletName}) could not be stopped while attempting to resize.", LogLevel.Critical);
 		}
 
 		// Attempt to resize the server, failing if it fails
 		var action = await client.DropletActions.Resize(DropletId, sizeSlug, resizeDisk: false);
-		success = await WaitForActionToComplete(action, pollingInterval: 5000, -1);
-		if (!success)
+		var resizeFailed = !(await WaitForActionToComplete(action, pollingInterval: 5000, -1));
+		if (resizeFailed)
 		{
-			return new ServerActionResult(false, "The server resizing operation failed.", LogLevel.Critical);
+			return new ServerActionResult(
+				false, $"The server ({DropletName}) resizing operation failed.", LogLevel.Critical);
 		}
 
 		// Finally attempt to start the server back up, failing if it fails
-		success = await StartDroplet();
-		if (!success)
+		var startFailed = !(await StartDroplet()).Success;
+		if (startFailed)
 		{
 			return new ServerActionResult(
-				false, "The server could not be started again after resizing.", LogLevel.Critical);
+				false, $"The server ({DropletName}) could not be started again after resizing.", LogLevel.Critical);
 		}
 
-		return new ServerActionResult(true, "The server was successfully resized.", LogLevel.Information);
+		return new ServerActionResult(
+			true, $"The server ({DropletName}) was successfully resized.", LogLevel.Information);
 	}
 
 	private async Task<bool> WaitForActionToComplete(
