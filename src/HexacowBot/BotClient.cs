@@ -11,7 +11,8 @@ namespace HexacowBot
 		private readonly IConfiguration config;
 		private readonly ILogger logger;
 
-		public BotClient(IConfiguration config, ILogger<BotClient> logger)
+		public BotClient(DiscordSocketConfig clientConfig, IConfiguration config, ILogger<BotClient> logger)
+			: base(clientConfig)
 		{
 			this.config = config;
 			this.logger = logger;

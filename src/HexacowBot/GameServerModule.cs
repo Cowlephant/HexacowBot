@@ -1,9 +1,6 @@
-﻿using DigitalOcean.API.Models.Responses;
-using Discord;
-using Discord.Commands;
+﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
-using System.Diagnostics;
 using System.Text;
 
 namespace HexacowBot;
@@ -34,13 +31,16 @@ public sealed class GameServerModule : InteractionModuleBase
 	[SlashCommand("server-balance", "Shows the Month to Date balance for the account.")]
 	public async Task ServerBalanceAsync()
 	{
+		await DeferAsync(ephemeral: true);
 		var response = $"```Monthly Balance\t {await server.GetMonthToDateBalance()}```";
-		await RespondAsync(response, ephemeral: true);
+		await FollowupAsync(response, ephemeral: true);
 	}
 
 	[SlashCommand("server-sizes", "Lists allowed droplet size slugs.")]
 	public async Task ServerSizesAsync()
 	{
+		await DeferAsync(ephemeral: true);
+
 		var allowedSizes = server.AllowedSlugSizes;
 		var hibernateSize = server.HibernateSize;
 
@@ -62,10 +62,9 @@ public sealed class GameServerModule : InteractionModuleBase
 		}
 		response.AppendLine("```");
 
-		await RespondAsync(response.ToString(), ephemeral: true);
+		await FollowupAsync(response.ToString(), ephemeral: true);
 	}
 
-	[RequireOwner]
 	[SlashCommand("server-start", "Boot up the server.")]
 	[ComponentInteraction("server-start-retry")]
 	public async Task ServerStartAsync()
@@ -93,11 +92,10 @@ public sealed class GameServerModule : InteractionModuleBase
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
 			await ReplyAsync($"❌\t⬆️🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
-			await FollowupAsync(retryPrompt, ephemeral: true, component: retryButtonComponent);
+			await FollowupAsync(retryPrompt, ephemeral: true, components: retryButtonComponent);
 		}
 	}
 
-	[RequireOwner]
 	[SlashCommand("server-stop", "Shuts down the server safely.")]
 	[ComponentInteraction("server-stop-retry")]
 	public async Task ServerStopAsync()
@@ -126,11 +124,10 @@ public sealed class GameServerModule : InteractionModuleBase
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
 			await ReplyAsync($"❌\t⬇️🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
-			await FollowupAsync(retryPrompt, ephemeral: true, component: retryButtonComponent);
+			await FollowupAsync(retryPrompt, ephemeral: true, components: retryButtonComponent);
 		}
 	}
 
-	[RequireOwner]
 	[SlashCommand("server-restart", "Restarts the server safely.")]
 	[ComponentInteraction("server-restart-retry")]
 	public async Task ServerRestartAsync()
@@ -159,11 +156,10 @@ public sealed class GameServerModule : InteractionModuleBase
 			logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
 			await ReplyAsync($"❌\t🔄🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
-			await FollowupAsync(retryPrompt, ephemeral: true, component: retryButtonComponent);
+			await FollowupAsync(retryPrompt, ephemeral: true, components: retryButtonComponent);
 		}
 	}
 
-	[RequireOwner]
 	[SlashCommand("server-resize", "Resizes server to a specified slug.")]
 	public async Task ResizeServerAsync()
 	{
@@ -192,10 +188,9 @@ public sealed class GameServerModule : InteractionModuleBase
 			.WithSelectMenu(slugSelectMenu)
 			.Build();
 
-		await FollowupAsync("Please select a slug size to resize to.", ephemeral: false, component: slugSelectComponent);
+		await FollowupAsync("Please select a slug size to resize to.", ephemeral: false, components: slugSelectComponent);
 	}
 
-	[RequireOwner]
 	[ComponentInteraction("server-resize-select")]
 	public async Task ResizeServerSelectAsync(string[] selectedSlugs)
 	{
@@ -253,7 +248,7 @@ public sealed class GameServerModule : InteractionModuleBase
 		});
 	}
 
-	//[Command("server-powercycle")]
+	[RequireOwner]
 	public async Task ServerPowerCycleAsync()
 	{
 		_ = server.PowerCycleDroplet(async () => { await ReplyAsync("Server is restarted."); });

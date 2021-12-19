@@ -31,7 +31,13 @@ public class Program
 			return client;
 		});
 		services.AddSingleton<Bot>();
-		services.AddSingleton<DiscordSocketClient, BotClient>();
+		services.AddSingleton<DiscordSocketClient, BotClient>(ServiceCollection => new BotClient(
+			new DiscordSocketConfig
+			{
+				UseInteractionSnowflakeDate = false
+			},
+			config,
+			ServiceCollection.GetRequiredService<ILogger<BotClient>>()));
 		services.AddSingleton<InteractionService>(serviceCollection => new InteractionService(
 			serviceCollection.GetService<DiscordSocketClient>(),
 			new InteractionServiceConfig
