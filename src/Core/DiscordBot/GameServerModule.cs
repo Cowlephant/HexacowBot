@@ -1,9 +1,12 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using HexacowBot.Core.GameServer;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Text;
 
-namespace HexacowBot;
+namespace HexacowBot.Core.DiscordBot;
 
 public sealed class GameServerModule : InteractionModuleBase
 {

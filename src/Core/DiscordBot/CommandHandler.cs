@@ -2,9 +2,10 @@
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
+using Microsoft.Extensions.Configuration;
 using System.Reflection;
 
-namespace HexacowBot;
+namespace HexacowBot.Core.DiscordBot;
 
 public sealed class CommandHandler
 {
@@ -43,7 +44,7 @@ public sealed class CommandHandler
 		client.ButtonExecuted += HandleComponentInteractionsAsync;
 		client.SelectMenuExecuted += HandleComponentInteractionsAsync;
 
-		var assembly = Assembly.GetEntryAssembly();
+		var assembly = Assembly.GetExecutingAssembly();
 		await commandService.AddModulesAsync(assembly, serviceProvider);
 		await interactionService.AddModulesAsync(assembly, serviceProvider);
 	}
@@ -89,7 +90,7 @@ public sealed class CommandHandler
 		{
 			throw new NotImplementedException();
 		}
-		
+
 		await interactionService.ExecuteCommandAsync(context, serviceProvider);
 	}
 }

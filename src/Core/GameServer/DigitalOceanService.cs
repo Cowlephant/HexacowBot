@@ -1,8 +1,10 @@
 ﻿using DigitalOcean.API;
 using DigitalOcean.API.Models.Responses;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
-namespace HexacowBot;
+namespace HexacowBot.Core.GameServer;
 
 public sealed class DigitalOceanService
 {

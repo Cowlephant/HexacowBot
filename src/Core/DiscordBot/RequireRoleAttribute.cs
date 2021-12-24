@@ -2,7 +2,7 @@
 using Discord.Interactions;
 using Discord.WebSocket;
 
-namespace HexacowBot;
+namespace HexacowBot.Core.DiscordBot;
 
 public sealed class RequireRoleAttribute : PreconditionAttribute
 {

@@ -4,6 +4,8 @@ using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using HexacowBot.Core.DiscordBot;
+using HexacowBot.Core.GameServer;
 
 namespace HexacowBot;
 public class Program

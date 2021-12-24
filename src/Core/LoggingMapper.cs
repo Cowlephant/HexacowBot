@@ -1,7 +1,7 @@
 ﻿using Discord;
 using Microsoft.Extensions.Logging;
 
-namespace HexacowBot;
+namespace HexacowBot.Core;
 
 public sealed class LoggingMapper
 {
