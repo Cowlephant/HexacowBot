@@ -1,9 +1,7 @@
 ﻿using Discord;
 using Discord.WebSocket;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
-namespace HexacowBot.Core.DiscordBot;
+namespace HexacowBot.Infrastructure.DiscordBot;
 
 public sealed class BotClient : DiscordSocketClient
 {

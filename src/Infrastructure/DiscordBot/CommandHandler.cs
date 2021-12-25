@@ -2,10 +2,10 @@
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
-using Microsoft.Extensions.Configuration;
+using HexacowBot.Core.DiscordBot.Modules.GameServer;
 using System.Reflection;
 
-namespace HexacowBot.Core.DiscordBot;
+namespace HexacowBot.Infrastructure.DiscordBot;
 
 public sealed class CommandHandler
 {
@@ -44,7 +44,7 @@ public sealed class CommandHandler
 		client.ButtonExecuted += HandleComponentInteractionsAsync;
 		client.SelectMenuExecuted += HandleComponentInteractionsAsync;
 
-		var assembly = Assembly.GetExecutingAssembly();
+		var assembly = Assembly.GetAssembly(typeof(GameServerModule));
 		await commandService.AddModulesAsync(assembly, serviceProvider);
 		await interactionService.AddModulesAsync(assembly, serviceProvider);
 	}

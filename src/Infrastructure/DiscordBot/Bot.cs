@@ -1,8 +1,8 @@
-﻿using Discord;
-using Discord.WebSocket;
+﻿using Discord.WebSocket;
+using HexacowBot.Core.DiscordBot;
 using HexacowBot.Core.GameServer;
 
-namespace HexacowBot.Core.DiscordBot;
+namespace HexacowBot.Infrastructure.DiscordBot;
 
 public sealed class Bot : IDisposable
 {
