@@ -5,23 +5,24 @@ using HexacowBot.Core.GameServer;
 
 namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
 
+[Group("server", "Manage the Game Server")]
 public sealed partial class GameServerModule : InteractionModuleBase
 {
 	private const string OwnerError = "During development this bot is only usable by the creator.";
 	private const string RetryPrompt = "Would you like to retry?";
 
-	private DigitalOceanService Server { get; set; }
+	private IGameServer GameServer { get; set; }
 	private IConfiguration Configuration { get; set; }
 	private ILogger Logger { get; set; }
 
 	private List<IUserMessage> MessagesToDelete { get; set; }
 
 	public GameServerModule(
-		DigitalOceanService digitalOceanService,
+		IGameServer gameServer,
 		IConfiguration configuration,
 		ILogger<GameServerModule> logger)
 	{
-		Server = digitalOceanService;
+		GameServer = gameServer;
 		Configuration = configuration;
 		Logger = logger;
 

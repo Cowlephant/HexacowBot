@@ -6,11 +6,11 @@ namespace HexacowBot.Core.DiscordBot;
 
 public sealed class RequireRoleAttribute : PreconditionAttribute
 {
-	private string name;
+	private string Name { get; set; }
 
 	public RequireRoleAttribute(string name)
 	{
-		this.name = name;
+		Name = name;
 	}
 
 	public override async Task<PreconditionResult> CheckRequirementsAsync(
@@ -18,8 +18,8 @@ public sealed class RequireRoleAttribute : PreconditionAttribute
 		ICommandInfo commandInfo,
 		IServiceProvider services)
 	{
-		var user = await context.Client.GetUserAsync(context.User.Id) as SocketGuildUser;
-		var userCanExecute = user?.Roles.Any(r => r.Name.ToLowerInvariant() == name.ToLowerInvariant()) ?? false;
+		var user = context.User as SocketGuildUser;
+		var userCanExecute = user?.Roles.Any(r => r.Name.ToLowerInvariant() == Name.ToLowerInvariant()) ?? false;
 
 		if (userCanExecute)
 		{
@@ -27,7 +27,7 @@ public sealed class RequireRoleAttribute : PreconditionAttribute
 		}
 		else
 		{
-			var failReason = $"You must be in the role ({name}) to use this command.";
+			var failReason = $"You must be in the role ({Name}) to use this command.";
 			return await Task.FromResult(PreconditionResult.FromError(failReason));
 		}
 	}

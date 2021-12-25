@@ -1,12 +1,10 @@
 ﻿using DigitalOcean.API;
 using DigitalOcean.API.Models.Responses;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
 namespace HexacowBot.Core.GameServer;
 
-public sealed class DigitalOceanService
+public sealed class DigitalOceanService : IGameServer
 {
 	private const int shutdownTimeout = 90;
 	private const int actionPollInterval = 1000;
@@ -15,20 +13,17 @@ public sealed class DigitalOceanService
 	private readonly IConfiguration configuration;
 
 	public long DropletId { get; private set; }
-	public string DropletName { get; private set; } = "Not Named - Rename me in config";
+	public string ServerName { get; private set; } = "Not Named - Rename me in config";
 	public bool IsBusy { get; private set; }
 
-	public Size CurrentSize { get; private set; } = null!;
-	public Size HibernateSize { get; private set; } = null!;
+	public ServerSize CurrentSize { get; private set; } = null!;
+	public ServerSize HibernateSize { get; private set; } = null!;
 
-	private HashSet<(string, Size)> slugSizes = null!;
-	public IEnumerable<(string, Size)> SlugSizes => slugSizes.AsEnumerable();
+	private HashSet<ServerSize> serverSizes = null!;
+	public IEnumerable<ServerSize> ServerSizes => serverSizes.AsEnumerable();
 
-	private HashSet<Size> allowedSizes = null!;
-	public IEnumerable<Size> AllowedSlugSizes => allowedSizes.AsEnumerable();
-
-	private HashSet<(string, string)> sizePrices = null!;
-	public IEnumerable<(string, string)> SlugPrices => sizePrices.AsEnumerable();
+	private HashSet<ServerSize> allowedSizes = null!;
+	public IEnumerable<ServerSize> AllowedSizes => allowedSizes.AsEnumerable();
 
 	public DigitalOceanService(IConfiguration configuration, DigitalOceanClient client)
 	{
@@ -41,21 +36,21 @@ public sealed class DigitalOceanService
 	private async void Initialize()
 	{
 		DropletId = long.Parse(configuration["DigitalOcean:DropletId"]);
-		DropletName = configuration["DigitalOcean:DropletName"];
+		ServerName = configuration["DigitalOcean:DropletName"] ?? "Not Named - Rename me in config";
 
-		slugSizes = (await client.Sizes.GetAll())
-			.Select(s => (s.Slug, s))
-			.ToHashSet<(string, Size)>();
-
-		var allowedSlugs = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
-		allowedSizes = allowedSlugs.Select(allowed => slugSizes
-			.FirstOrDefault(size => allowed == size.Item1).Item2)
+		serverSizes = (await client.Sizes.GetAll())
+			.Select(s => s.ToServerSize())
 			.ToHashSet();
 
-		CurrentSize = (await client.Droplets.Get(DropletId)).Size;
+		var allowedSlugs = configuration.GetSection("DigitalOcean:AllowedSlugs").Get<string[]>();
+		allowedSizes = allowedSlugs.Select(allowed => serverSizes
+			.First(size => allowed == size.Slug))
+			.ToHashSet();
+
+		CurrentSize = (await client.Droplets.Get(DropletId)).Size.ToServerSize();
 
 		var hibernateSlug = configuration["DigitalOcean:HibernateSlug"];
-		HibernateSize = slugSizes.First(s => s.Item1 == hibernateSlug).Item2;
+		HibernateSize = serverSizes.First(s => s.Slug == hibernateSlug);
 
 		var hibernateSlugNotAllowed = !(allowedSizes.Any(s => s == HibernateSize));
 		if (hibernateSlugNotAllowed)
@@ -64,30 +59,30 @@ public sealed class DigitalOceanService
 		}
 	}
 
-	public async Task<Size> GetDropletSize()
+	public async Task<ServerSize> GetCurrentSizeAsync()
 	{
-		return (await client.Droplets.Get(DropletId)).Size;
+		return (await client.Droplets.Get(DropletId)).Size.ToServerSize();
 	}
 
-	public Size GetSlugSize(string sizeSlug)
+	public async Task<ServerSize?> GetServerSizeAsync(string size)
 	{
-		return slugSizes.FirstOrDefault(s => s.Item1 == sizeSlug).Item2;
+		return await Task.FromResult(serverSizes.FirstOrDefault(s => s.Slug == size));
 	}
 
-	public async Task<string> GetMonthToDateBalance()
+	public async Task<decimal> GetMonthToDateBalanceAsync()
 	{
 		var balance = await client.BalanceClient.Get();
-		return $"${balance.MonthToDateBalance}";
+		return decimal.Parse(balance.MonthToDateBalance);
 	}
 
-	public async Task<ServerActionResult> StartDroplet()
+	public async Task<ServerActionResult> StartServerAsync()
 	{
 		var droplet = await GetDroplet();
 		var alreadyStarted = DropletStatus.FromName(droplet.Status) == DropletStatus.Active;
 		if (alreadyStarted)
 		{
 			return new ServerActionResult(true, 
-				$"The server ({DropletName}) is already started.", 
+				$"The server ({ServerName}) is already started.", 
 				TimeSpan.Zero, 
 				LogLevel.Information);
 		}
@@ -104,23 +99,23 @@ public sealed class DigitalOceanService
 		if (success)
 		{
 			return new ServerActionResult(
-				true, $"The server ({DropletName}) was successfully started.", stopwatch.Elapsed, LogLevel.Information);
+				true, $"The server ({ServerName}) was successfully started.", stopwatch.Elapsed, LogLevel.Information);
 		}
 		else
 		{
 			return new ServerActionResult(
-				false, $"The server ({DropletName}) start operation failed.", stopwatch.Elapsed, LogLevel.Critical);
+				false, $"The server ({ServerName}) start operation failed.", stopwatch.Elapsed, LogLevel.Critical);
 		}
 	}
 
-	public async Task<ServerActionResult> StopDroplet()
+	public async Task<ServerActionResult> StopServerAsync()
 	{
 		var droplet = await GetDroplet();
 		var alreadyOff = DropletStatus.FromName(droplet.Status) == DropletStatus.Off;
 		if (alreadyOff)
 		{
 			return new ServerActionResult(true,
-				$"The server ({DropletName}) is already stopped.",
+				$"The server ({ServerName}) is already stopped.",
 				TimeSpan.Zero,
 				LogLevel.Information);
 		}
@@ -142,20 +137,20 @@ public sealed class DigitalOceanService
 			if (powerOffFailed)
 			{
 				return new ServerActionResult(
-					false, $"The server ({DropletName}) stop operation failed.", stopwatch.Elapsed, LogLevel.Critical);
+					false, $"The server ({ServerName}) stop operation failed.", stopwatch.Elapsed, LogLevel.Critical);
 			}
 
 			return new ServerActionResult(
-				true, $"The server ({DropletName}) was stopped ungracefully.", stopwatch.Elapsed, LogLevel.Warning);
+				true, $"The server ({ServerName}) was stopped ungracefully.", stopwatch.Elapsed, LogLevel.Warning);
 		}
 
 		stopwatch.Stop();
 
 		return new ServerActionResult(
-			true, $"The server ({DropletName}) was successfully stopped.", stopwatch.Elapsed, LogLevel.Information);
+			true, $"The server ({ServerName}) was successfully stopped.", stopwatch.Elapsed, LogLevel.Information);
 	}
 
-	public async Task<ServerActionResult> RestartDroplet()
+	public async Task<ServerActionResult> RestartServerAsync()
 	{
 		var stopwatch = new Stopwatch();
 		stopwatch.Start();
@@ -168,93 +163,104 @@ public sealed class DigitalOceanService
 		if (success)
 		{
 			return new ServerActionResult(
-				true, $"The server ({DropletName}) was successfully restarted.", stopwatch.Elapsed, LogLevel.Information);
+				true, $"The server ({ServerName}) was successfully restarted.", stopwatch.Elapsed, LogLevel.Information);
 		}
 		else
 		{
 			return new ServerActionResult(
-				false, $"The server ({DropletName}) reboot operation failed.", stopwatch.Elapsed, LogLevel.Critical);
+				false, $"The server ({ServerName}) reboot operation failed.", stopwatch.Elapsed, LogLevel.Critical);
 		}
 	}
 
-	public async Task PowerCycleDroplet(System.Action? callback = null)
-	{
-		var action = await client.DropletActions.PowerCycle(DropletId);
-		await WaitForActionToComplete(action);
-
-		if (callback is not null)
-		{
-			callback();
-		}
-	}
-
-	public async Task<ServerActionResult> ResizeDroplet(string sizeSlug)
+	public async Task<ServerActionResult> PowerCycleServerAsync()
 	{
 		var stopwatch = new Stopwatch();
 		stopwatch.Start();
 
-		var isDisallowedSlugSize = !(allowedSizes.Any(s => s.Slug == sizeSlug));
-		var currentSize = await GetDropletSize();
+		var action = await client.DropletActions.PowerCycle(DropletId);
+		var success = await WaitForActionToComplete(action);
+
+		stopwatch.Stop();
+
+		if (success)
+		{
+			return new ServerActionResult(
+				true, $"The server ({ServerName}) was successfully power cycled.", stopwatch.Elapsed, LogLevel.Information);
+		}
+		else
+		{
+			return new ServerActionResult(
+				false, $"The server ({ServerName}) power cycle operation failed.", stopwatch.Elapsed, LogLevel.Critical);
+		}
+	}
+
+	public async Task<ServerActionResult> ScaleServerAsync(ServerSize size)
+	{
+		var stopwatch = new Stopwatch();
+		stopwatch.Start();
+
+		var isDisallowedSlugSize = !(allowedSizes.Any(s => s.Slug == size.Slug));
+		var currentSize = await GetCurrentSizeAsync();
 
 		if (isDisallowedSlugSize)
 		{
 			stopwatch.Stop();
 
 			return new ServerActionResult(false, 
-				$"The specified slug size is not a valid size for server ({DropletName})", 
+				$"The specified slug size is not a valid size for server ({ServerName})", 
 				stopwatch.Elapsed, 
 				LogLevel.Warning);
 		}
-		if (currentSize.Slug == sizeSlug)
+		if (currentSize.Slug == size.Slug)
 		{
 			stopwatch.Stop();
 
 			return new ServerActionResult(
-				false, $"The server ({DropletName}) is already this size.", stopwatch.Elapsed, LogLevel.Information);
+				false, $"The server ({ServerName}) is already this size.", stopwatch.Elapsed, LogLevel.Information);
 		}
 
 		// TODO: Check if there are running servers first and abort and notify if so
 		// Attempt to shut down droplet first, failing if it fails
-		var stopFailed = !(await StopDroplet()).Success;
+		var stopFailed = !(await StopServerAsync()).Success;
 		if (stopFailed)
 		{
 			stopwatch.Stop();
 
 			return new ServerActionResult(false,
-				$"The server ({DropletName}) could not be stopped while attempting to resize.",
+				$"The server ({ServerName}) could not be stopped while attempting to resize.",
 				stopwatch.Elapsed,
 				LogLevel.Critical);
 		}
 
 		// Attempt to resize the server, failing if it fails
-		var action = await client.DropletActions.Resize(DropletId, sizeSlug, resizeDisk: false);
+		var action = await client.DropletActions.Resize(DropletId, size.Slug, resizeDisk: false);
 		var resizeFailed = !(await WaitForActionToComplete(action, pollingInterval: 5000, -1));
 		if (resizeFailed)
 		{
 			stopwatch.Stop();
 
 			return new ServerActionResult(
-				false, $"The server ({DropletName}) resizing operation failed.", stopwatch.Elapsed, LogLevel.Critical);
+				false, $"The server ({ServerName}) resizing operation failed.", stopwatch.Elapsed, LogLevel.Critical);
 		}
 
 		// Finally attempt to start the server back up, failing if it fails
-		var startFailed = !(await StartDroplet()).Success;
+		var startFailed = !(await StartServerAsync()).Success;
 		if (startFailed)
 		{
 			stopwatch.Stop();
 
 			return new ServerActionResult(false,
-				$"The server ({DropletName}) could not be started again after resizing.",
+				$"The server ({ServerName}) could not be started again after resizing.",
 				stopwatch.Elapsed,
 				LogLevel.Critical);
 		}
 
-		CurrentSize = (await client.Droplets.Get(DropletId)).Size;
+		CurrentSize = (await client.Droplets.Get(DropletId)).Size.ToServerSize();
 
 		stopwatch.Stop();
 
 		return new ServerActionResult(
-			true, $"The server ({DropletName}) was successfully resized.", stopwatch.Elapsed, LogLevel.Information);
+			true, $"The server ({ServerName}) was successfully resized.", stopwatch.Elapsed, LogLevel.Information);
 	}
 
 	private async Task<bool> WaitForActionToComplete(
@@ -287,7 +293,6 @@ public sealed class DigitalOceanService
 
 		return true;
 	}
-
 
 	private async Task<Droplet> GetDroplet()
 	{

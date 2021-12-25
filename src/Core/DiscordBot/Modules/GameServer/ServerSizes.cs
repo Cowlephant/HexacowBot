@@ -4,21 +4,21 @@ namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
 
 public sealed partial class GameServerModule
 {
-	[SlashCommand("server-sizes", "Lists allowed droplet size slugs.")]
+	[SlashCommand("sizes", "Lists allowed droplet sizes.")]
 	public async Task ServerSizesAsync()
 	{
 		await DeferAsync(ephemeral: true);
 
-		var allowedSizes = Server.AllowedSlugSizes;
-		var hibernateSize = Server.HibernateSize;
+		var allowedSizes = GameServer.AllowedSizes;
+		var hibernateSize = GameServer.HibernateSize;
 
 		var response = new StringBuilder();
-		response.AppendLine("__Allowed server size slugs__");
+		response.AppendLine("__Allowed server sizes__");
 		response.AppendLine("```");
 		foreach (var size in allowedSizes)
 		{
 			var slug = size.Slug;
-			var active = size.Slug == Server.CurrentSize.Slug ? "✅" : string.Empty;
+			var active = size.Slug == GameServer.CurrentSize.Slug ? "✅" : string.Empty;
 			var hibernation = size == hibernateSize ? "💤" : string.Empty;
 			var vCpus = $"vCpus: {size.Vcpus}";
 			var ram = $"RAM: {(size.Memory / 1024)}GB";

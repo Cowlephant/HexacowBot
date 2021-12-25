@@ -5,17 +5,18 @@ namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
 
 public sealed partial class GameServerModule
 {
-	[SlashCommand("server-stop", "Shuts down the server safely.")]
-	[ComponentInteraction("server-stop-retry")]
+	[RequireOwner]
+	[SlashCommand("stop", "Shuts down the server safely.")]
+	[ComponentInteraction("server-stop-retry", ignoreGroupNames: true)]
 	public async Task ServerStopAsync()
 	{
 		await DeferAsync();
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
-		var initialMessage = await ReplyAsync($"Attempting to shut down the server __**{Server.DropletName}**__.");
+		var initialMessage = await ReplyAsync($"Attempting to shut down the server __**{GameServer.ServerName}**__.");
 		MessagesToDelete.Add(initialMessage);
-		var serverActionResult = await Server.StopDroplet();
+		var serverActionResult = await GameServer.StopServerAsync();
 
 		if (serverActionResult.Success)
 		{

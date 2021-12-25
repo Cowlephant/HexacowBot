@@ -1,13 +1,32 @@
-﻿using Discord.Interactions;
+﻿using Discord;
+using Discord.Interactions;
+using HexacowBot.Core.GameServer;
 
 namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
 
 public sealed partial class GameServerModule
 {
 	[RequireOwner]
+	[SlashCommand("powercycle", "Boot up the server.")]
 	public async Task ServerPowerCycleAsync()
 	{
-		_ = Server.PowerCycleDroplet(async () => { await ReplyAsync("Server is restarted."); });
-		await ReplyAsync("Power cycling the server. I will let you know when it's finished.");
+		await DeferAsync();
+
+		var initialMessage = await ReplyAsync($"Attempting to power cycle the server __**{GameServer.ServerName}**__.");
+		MessagesToDelete.Add(initialMessage);
+		var serverActionResult = await GameServer.PowerCycleServerAsync();
+
+		if (serverActionResult.Success)
+		{
+			Logger.Log(serverActionResult.Severity, serverActionResult.Message);
+
+			await FollowupAsync($"✅\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
+		}
+		else
+		{
+			Logger.Log(serverActionResult.Severity, serverActionResult.Message);
+
+			await FollowupAsync($"❌\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
+		}
 	}
 }

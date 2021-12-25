@@ -36,7 +36,8 @@ public class Program
 		services.AddSingleton<DiscordSocketClient, BotClient>(ServiceCollection => new BotClient(
 			new DiscordSocketConfig
 			{
-				UseInteractionSnowflakeDate = false
+				UseInteractionSnowflakeDate = false,
+				GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.GuildMembers
 			},
 			config,
 			ServiceCollection.GetRequiredService<ILogger<BotClient>>()));
@@ -57,7 +58,7 @@ public class Program
 				LogLevel = Discord.LogSeverity.Verbose
 			}));
 		services.AddSingleton<CommandHandler>();
-		services.AddSingleton<DigitalOceanService>();
+		services.AddSingleton<IGameServer, DigitalOceanService>();
 
 		var app = builder.Build();
 		WarmupServices(app.Services, app.Lifetime);

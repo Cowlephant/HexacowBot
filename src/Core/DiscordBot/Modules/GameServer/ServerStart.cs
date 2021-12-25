@@ -5,17 +5,18 @@ namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
 
 public sealed partial class GameServerModule
 {
-	[SlashCommand("server-start", "Boot up the server.")]
-	[ComponentInteraction("server-start-retry")]
+	[RequireOwner]
+	[SlashCommand("start", "Boot up the server.")]
+	[ComponentInteraction("server-start-retry", ignoreGroupNames: true)]
 	public async Task ServerStartAsync()
 	{
 		await DeferAsync();
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
-		var initialMessage = await ReplyAsync($"Attempting to boot up the server __**{Server.DropletName}**__.");
+		var initialMessage = await ReplyAsync($"Attempting to boot up the server __**{GameServer.ServerName}**__.");
 		MessagesToDelete.Add(initialMessage);
-		var serverActionResult = await Server.StartDroplet();
+		var serverActionResult = await GameServer.StartServerAsync();
 
 		if (serverActionResult.Success)
 		{

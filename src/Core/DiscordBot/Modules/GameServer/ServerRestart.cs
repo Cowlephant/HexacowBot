@@ -5,17 +5,18 @@ namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
 
 public sealed partial class GameServerModule
 {
-	[SlashCommand("server-restart", "Restarts the server safely.")]
-	[ComponentInteraction("server-restart-retry")]
+	[RequireOwner]
+	[SlashCommand("restart", "Restarts the server safely.")]
+	[ComponentInteraction("server-restart-retry", ignoreGroupNames: true)]
 	public async Task ServerRestartAsync()
 	{
 		await DeferAsync();
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
-		var initialMessage = await ReplyAsync($"Attempting to restart the server __**{Server.DropletName}**__.");
+		var initialMessage = await ReplyAsync($"Attempting to restart the server __**{GameServer.ServerName}**__.");
 		MessagesToDelete.Add(initialMessage);
-		var serverActionResult = await Server.RestartDroplet();
+		var serverActionResult = await GameServer.RestartServerAsync();
 
 		if (serverActionResult.Success)
 		{

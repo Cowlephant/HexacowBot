@@ -5,51 +5,53 @@ namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
 
 public sealed partial class GameServerModule
 {
-	[SlashCommand("server-scale", "Scales server to a specified slug.")]
+	[RequireOwner(Group = "ServerManagerPermission")]
+	[RequireRole("Game Server Manager", Group = "ServerManagerPermission")]
+	[SlashCommand("scale", "Scales server to a specified size.")]
 	public async Task ServerScaleAsync()
 	{
 		await DeferAsync(ephemeral: true);
 
-		var sizeSlugOptions = new List<SelectMenuOptionBuilder>(Server.AllowedSlugSizes.Count());
+		var sizeOptions = new List<SelectMenuOptionBuilder>(GameServer.AllowedSizes.Count());
 
-		foreach (var size in Server.AllowedSlugSizes)
+		foreach (var size in GameServer.AllowedSizes)
 		{
 			var description =
 				$"vCpus: {size.Vcpus} | RAM: {size.Memory} | Monthly: ${size.PriceMonthly} | Hourly: ${size.PriceHourly}";
 
-			var slugOption = new SelectMenuOptionBuilder()
+			var sizeOption = new SelectMenuOptionBuilder()
 				.WithLabel(size.Slug)
 				.WithValue(size.Slug)
 				.WithDescription(description);
 
-			sizeSlugOptions.Add(slugOption);
+			sizeOptions.Add(sizeOption);
 		}
 
 		var slugSelectMenu = new SelectMenuBuilder()
 			.WithCustomId("server-scale-select")
-			.WithOptions(sizeSlugOptions);
+			.WithOptions(sizeOptions);
 
 		var slugSelectComponent = new ComponentBuilder()
 			.WithSelectMenu(slugSelectMenu)
 			.Build();
 
-		await FollowupAsync("Please select a slug size to scale to.", ephemeral: false, components: slugSelectComponent);
+		await FollowupAsync("Please select a size to scale to.", ephemeral: false, components: slugSelectComponent);
 	}
 
-	[ComponentInteraction("server-scale-select")]
+	[ComponentInteraction("server-scale-select", ignoreGroupNames: true)]
 	public async Task ServerScaleSelectAsync(string[] selectedSlugs)
 	{
-		var selectedSlug = selectedSlugs.First();
-
-		var size = Server.GetSlugSize(selectedSlug);
-
-		var initialMessage = await ReplyAsync(
-			$"Attempting to scale the server __**{Server.DropletName}**__ to slug {size.Slug}.");
-
 		await DeferAsync(ephemeral: true);
 
+		var selectedSlug = selectedSlugs.First();
+
+		var size = await GameServer.GetServerSizeAsync(selectedSlug);
+
+		var initialMessage = await ReplyAsync(
+			$"Attempting to scale the server __**{GameServer.ServerName}**__ to size {size!.Slug}.");
+
 		MessagesToDelete.Add(initialMessage);
-		var serverActionResult = await Server.ResizeDroplet(size.Slug);
+		var serverActionResult = await GameServer.ScaleServerAsync(size);
 
 		await Context.Interaction.ModifyOriginalResponseAsync(message =>
 		{
