@@ -143,6 +143,16 @@ public sealed class DigitalOceanService : IGameServer
 		return await ScaleServerExecuteAsync(size);
 	}
 
+	public async Task<ServerActionResult> HibernateServerAsync()
+	{
+		if (IsBusy)
+		{
+			return busyActionResult;
+		}
+
+		return await HibernateServerExecuteAsync();
+	}
+
 	private async Task<ServerActionResult> StartServerExecuteAsync()
 	{
 		BlockServerAccess();
@@ -350,6 +360,22 @@ public sealed class DigitalOceanService : IGameServer
 
 		return new ServerActionResult(
 			true, $"The server ({ServerName}) was successfully resized.", stopwatch.Elapsed, LogLevel.Information);
+	}
+
+	private async Task<ServerActionResult> HibernateServerExecuteAsync()
+	{
+		var result = await ScaleServerExecuteAsync(HibernateSize);
+
+		if (result.Success)
+		{
+			return new ServerActionResult(
+				true, $"The server ({ServerName}) was successfully put into hibernation.", result.elapsedTime, LogLevel.Information);
+		}
+		else
+		{
+			return new ServerActionResult(
+				false, $"The server ({ServerName}) hibernation operation failed.", result.elapsedTime, LogLevel.Critical);
+		}
 	}
 
 	private async Task<bool> WaitForActionToComplete(

@@ -28,6 +28,8 @@ public interface IGameServer
 
 	public Task<ServerActionResult> ScaleServerAsync(ServerSize size);
 
+	public Task<ServerActionResult> HibernateServerAsync();
+
 	public Task<decimal> GetMonthToDateBalanceAsync();
 
 	public Task<ServerSize> GetCurrentSizeAsync();
