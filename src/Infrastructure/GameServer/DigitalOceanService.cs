@@ -1,10 +1,11 @@
 ﻿using DigitalOcean.API;
 using DigitalOcean.API.Models.Responses;
+using HexacowBot.Core.GameServer;
 using System.Diagnostics;
 
-namespace HexacowBot.Core.GameServer;
+namespace HexacowBot.Infrastructure.GameServer;
 
-public sealed class DigitalOceanService : IGameServer
+internal sealed class DigitalOceanService : IGameServer
 {
 	private const int shutdownTimeout = 90;
 	private const int actionPollInterval = 1000;
@@ -58,7 +59,7 @@ public sealed class DigitalOceanService : IGameServer
 		var hibernateSlugNotAllowed = !(allowedSizes.Any(s => s == HibernateSize));
 		if (hibernateSlugNotAllowed)
 		{
-			throw new DigitalOceanException("Hibernate slug is not in configured list of allowed slugs.");
+			throw new GameServerException("Hibernate slug is not in configured list of allowed slugs.");
 		}
 	}
 
@@ -364,6 +365,12 @@ public sealed class DigitalOceanService : IGameServer
 
 	private async Task<ServerActionResult> HibernateServerExecuteAsync()
 	{
+		if (CurrentSize == HibernateSize)
+		{
+			return new ServerActionResult(
+				true, $"The server ({ServerName}) is already in hibernation.", TimeSpan.Zero, LogLevel.Information);
+		}
+
 		var result = await ScaleServerExecuteAsync(HibernateSize);
 
 		if (result.Success)

@@ -5,7 +5,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using HexacowBot.Core.DiscordBot;
-using HexacowBot.Core.GameServer;
+using Infrastructure;
 
 namespace HexacowBot;
 public class Program
@@ -58,7 +58,7 @@ public class Program
 				LogLevel = Discord.LogSeverity.Verbose
 			}));
 		services.AddSingleton<CommandHandler>();
-		services.AddSingleton<IGameServer, DigitalOceanService>();
+		services.AddInfrastructure(config);
 
 		var app = builder.Build();
 		WarmupServices(app.Services, app.Lifetime);
