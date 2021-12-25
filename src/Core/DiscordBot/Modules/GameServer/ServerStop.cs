@@ -12,6 +12,8 @@ public sealed partial class GameServerModule
 	{
 		await DeferAsync();
 
+		await SetCustomStatus("Stopping");
+
 		await RetryClearComponentInteraction(Context.Interaction);
 
 		var initialMessage = await ReplyAsync($"Attempting to shut down the server __**{GameServer.ServerName}**__.");
@@ -22,7 +24,9 @@ public sealed partial class GameServerModule
 		{
 			Logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await FollowupAsync($"✅\t⬇️🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
+			await SetCustomStatus("Stopped");
+
+			await FollowupAsync($"✅\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 		}
 		else
 		{
@@ -33,7 +37,9 @@ public sealed partial class GameServerModule
 
 			Logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await ReplyAsync($"❌\t⬇️🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
+			await ClearCustomStatus();
+
+			await ReplyAsync($"❌\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 			await FollowupAsync(RetryPrompt, ephemeral: true, components: retryButtonComponent);
 		}
 	}

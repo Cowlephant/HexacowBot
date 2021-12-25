@@ -12,6 +12,8 @@ public sealed partial class GameServerModule
 	{
 		await DeferAsync();
 
+		await SetCustomStatus("Power Cycling");
+
 		var initialMessage = await ReplyAsync($"Attempting to power cycle the server __**{GameServer.ServerName}**__.");
 		MessagesToDelete.Add(initialMessage);
 		var serverActionResult = await GameServer.PowerCycleServerAsync();
@@ -28,5 +30,7 @@ public sealed partial class GameServerModule
 
 			await FollowupAsync($"❌\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 		}
+
+		await ClearCustomStatus();
 	}
 }

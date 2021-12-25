@@ -81,4 +81,14 @@ public sealed partial class GameServerModule : InteractionModuleBase
 
 		return $"({Math.Round(timespan.TotalSeconds, 0)} sec)";
 	}
+
+	private async Task SetCustomStatus(string status)
+	{
+		await (Context.Client as DiscordSocketClient)!.SetGameAsync(status, type: ActivityType.Watching);
+	}
+
+	private async Task ClearCustomStatus()
+	{
+		await (Context.Client as DiscordSocketClient)!.SetGameAsync("Ready", type: ActivityType.Watching);
+	}
 }

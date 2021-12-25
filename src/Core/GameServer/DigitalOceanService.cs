@@ -8,13 +8,16 @@ public sealed class DigitalOceanService : IGameServer
 {
 	private const int shutdownTimeout = 90;
 	private const int actionPollInterval = 1000;
+	private ServerActionResult busyActionResult = new ServerActionResult(
+		false, "The server is currently undergoing an operation. Please wait and try again.", TimeSpan.Zero, LogLevel.Information);
 
 	private readonly DigitalOceanClient client;
 	private readonly IConfiguration configuration;
 
 	public long DropletId { get; private set; }
 	public string ServerName { get; private set; } = "Not Named - Rename me in config";
-	public bool IsBusy { get; private set; }
+	
+	public bool IsBusy { get; private set; } = false;
 
 	public ServerSize CurrentSize { get; private set; } = null!;
 	public ServerSize HibernateSize { get; private set; } = null!;
@@ -75,15 +78,71 @@ public sealed class DigitalOceanService : IGameServer
 		return decimal.Parse(balance.MonthToDateBalance);
 	}
 
+	// The Async methods are for accessing externally via IGameServer interface. The IsBusy check will notify
+	// external users if the command cannot be completed at this time as it is executing another, without
+	// interfering internally with the same commands being used in multi-step operations
+
 	public async Task<ServerActionResult> StartServerAsync()
 	{
+		if (IsBusy)
+		{
+			return busyActionResult;
+		}
+
+		return await StartServerExecuteAsync();
+	}
+
+	public async Task<ServerActionResult> StopServerAsync()
+	{
+		if (IsBusy)
+		{
+			return busyActionResult;
+		}
+
+		return await StopServerExecuteAsync();
+	}
+
+	public async Task<ServerActionResult> RestartServerAsync()
+	{
+		if (IsBusy)
+		{
+			return busyActionResult;
+		}
+
+		return await RestartServerExecuteAsync();
+	}
+
+	public async Task<ServerActionResult> PowerCycleServerAsync()
+	{
+		if (IsBusy)
+		{
+			return busyActionResult;
+		}
+
+		return await PowerCycleServerExecuteAsync();
+	}
+
+	public async Task<ServerActionResult> ScaleServerAsync(ServerSize size)
+	{
+		if (IsBusy)
+		{
+			return busyActionResult;
+		}
+
+		return await ScaleServerExecuteAsync(size);
+	}
+
+	private async Task<ServerActionResult> StartServerExecuteAsync()
+	{
+		BlockServerAccess();
+
 		var droplet = await GetDroplet();
 		var alreadyStarted = DropletStatus.FromName(droplet.Status) == DropletStatus.Active;
 		if (alreadyStarted)
 		{
-			return new ServerActionResult(true, 
-				$"The server ({ServerName}) is already started.", 
-				TimeSpan.Zero, 
+			return new ServerActionResult(true,
+				$"The server ({ServerName}) is already started.",
+				TimeSpan.Zero,
 				LogLevel.Information);
 		}
 
@@ -94,6 +153,7 @@ public sealed class DigitalOceanService : IGameServer
 
 		var success = await WaitForActionToComplete(action);
 
+		FreeServerAccess();
 		stopwatch.Stop();
 
 		if (success)
@@ -108,8 +168,10 @@ public sealed class DigitalOceanService : IGameServer
 		}
 	}
 
-	public async Task<ServerActionResult> StopServerAsync()
+	private async Task<ServerActionResult> StopServerExecuteAsync()
 	{
+		BlockServerAccess();
+
 		var droplet = await GetDroplet();
 		var alreadyOff = DropletStatus.FromName(droplet.Status) == DropletStatus.Off;
 		if (alreadyOff)
@@ -132,6 +194,7 @@ public sealed class DigitalOceanService : IGameServer
 			action = await client.DropletActions.PowerOff(DropletId);
 			var powerOffFailed = !(await WaitForActionToComplete(action, actionPollInterval));
 
+			FreeServerAccess();
 			stopwatch.Stop();
 
 			if (powerOffFailed)
@@ -144,20 +207,24 @@ public sealed class DigitalOceanService : IGameServer
 				true, $"The server ({ServerName}) was stopped ungracefully.", stopwatch.Elapsed, LogLevel.Warning);
 		}
 
+		FreeServerAccess();
 		stopwatch.Stop();
 
 		return new ServerActionResult(
 			true, $"The server ({ServerName}) was successfully stopped.", stopwatch.Elapsed, LogLevel.Information);
 	}
 
-	public async Task<ServerActionResult> RestartServerAsync()
+	private async Task<ServerActionResult> RestartServerExecuteAsync()
 	{
+		BlockServerAccess();
+
 		var stopwatch = new Stopwatch();
 		stopwatch.Start();
 
 		var action = await client.DropletActions.Reboot(DropletId);
 		var success = await WaitForActionToComplete(action);
 
+		FreeServerAccess();
 		stopwatch.Stop();
 
 		if (success)
@@ -172,14 +239,17 @@ public sealed class DigitalOceanService : IGameServer
 		}
 	}
 
-	public async Task<ServerActionResult> PowerCycleServerAsync()
+	private async Task<ServerActionResult> PowerCycleServerExecuteAsync()
 	{
+		BlockServerAccess();
+
 		var stopwatch = new Stopwatch();
 		stopwatch.Start();
 
 		var action = await client.DropletActions.PowerCycle(DropletId);
 		var success = await WaitForActionToComplete(action);
 
+		FreeServerAccess();
 		stopwatch.Stop();
 
 		if (success)
@@ -194,8 +264,10 @@ public sealed class DigitalOceanService : IGameServer
 		}
 	}
 
-	public async Task<ServerActionResult> ScaleServerAsync(ServerSize size)
+	private async Task<ServerActionResult> ScaleServerExecuteAsync(ServerSize size)
 	{
+		BlockServerAccess();
+
 		var stopwatch = new Stopwatch();
 		stopwatch.Start();
 
@@ -204,26 +276,29 @@ public sealed class DigitalOceanService : IGameServer
 
 		if (isDisallowedSlugSize)
 		{
+			FreeServerAccess();
 			stopwatch.Stop();
 
-			return new ServerActionResult(false, 
-				$"The specified slug size is not a valid size for server ({ServerName})", 
-				stopwatch.Elapsed, 
+			return new ServerActionResult(false,
+				$"The specified slug size is not a valid size for server ({ServerName})",
+				stopwatch.Elapsed,
 				LogLevel.Warning);
 		}
 		if (currentSize.Slug == size.Slug)
 		{
+			FreeServerAccess();
 			stopwatch.Stop();
 
 			return new ServerActionResult(
-				false, $"The server ({ServerName}) is already this size.", stopwatch.Elapsed, LogLevel.Information);
+				true, $"The server ({ServerName}) is already this size.", stopwatch.Elapsed, LogLevel.Information);
 		}
 
 		// TODO: Check if there are running servers first and abort and notify if so
 		// Attempt to shut down droplet first, failing if it fails
-		var stopFailed = !(await StopServerAsync()).Success;
+		var stopFailed = !(await StopServerExecuteAsync()).Success;
 		if (stopFailed)
 		{
+			FreeServerAccess();
 			stopwatch.Stop();
 
 			return new ServerActionResult(false,
@@ -237,6 +312,7 @@ public sealed class DigitalOceanService : IGameServer
 		var resizeFailed = !(await WaitForActionToComplete(action, pollingInterval: 5000, -1));
 		if (resizeFailed)
 		{
+			FreeServerAccess();
 			stopwatch.Stop();
 
 			return new ServerActionResult(
@@ -244,9 +320,10 @@ public sealed class DigitalOceanService : IGameServer
 		}
 
 		// Finally attempt to start the server back up, failing if it fails
-		var startFailed = !(await StartServerAsync()).Success;
+		var startFailed = !(await StartServerExecuteAsync()).Success;
 		if (startFailed)
 		{
+			FreeServerAccess();
 			stopwatch.Stop();
 
 			return new ServerActionResult(false,
@@ -257,6 +334,7 @@ public sealed class DigitalOceanService : IGameServer
 
 		CurrentSize = (await client.Droplets.Get(DropletId)).Size.ToServerSize();
 
+		FreeServerAccess();
 		stopwatch.Stop();
 
 		return new ServerActionResult(
@@ -303,5 +381,15 @@ public sealed class DigitalOceanService : IGameServer
 	{
 		var dropletActionStatus = DropletActionStatus.FromName(status);
 		return DropletActionStatus.FromName(status);
+	}
+
+	private void BlockServerAccess()
+	{
+		IsBusy = true;
+	}
+
+	private void FreeServerAccess()
+	{
+		IsBusy = false;
 	}
 }

@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.Interactions;
+using Discord.WebSocket;
 
 namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
 
@@ -15,6 +16,8 @@ public sealed partial class GameServerModule
 		await RetryClearComponentInteraction(Context.Interaction);
 
 		var initialMessage = await ReplyAsync($"Attempting to restart the server __**{GameServer.ServerName}**__.");
+		await SetCustomStatus("Restarting");
+
 		MessagesToDelete.Add(initialMessage);
 		var serverActionResult = await GameServer.RestartServerAsync();
 
@@ -22,7 +25,7 @@ public sealed partial class GameServerModule
 		{
 			Logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await FollowupAsync($"✅\t🔄🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
+			await FollowupAsync($"✅\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 		}
 		else
 		{
@@ -33,8 +36,10 @@ public sealed partial class GameServerModule
 
 			Logger.Log(serverActionResult.Severity, serverActionResult.Message);
 
-			await ReplyAsync($"❌\t🔄🖥\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
+			await ReplyAsync($"❌\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 			await FollowupAsync(RetryPrompt, ephemeral: true, components: retryButtonComponent);
 		}
+
+		await ClearCustomStatus();
 	}
 }

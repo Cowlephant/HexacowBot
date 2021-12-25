@@ -43,6 +43,8 @@ public sealed partial class GameServerModule
 	{
 		await DeferAsync(ephemeral: true);
 
+		await SetCustomStatus("Scaling");
+
 		var selectedSlug = selectedSlugs.First();
 
 		var size = await GameServer.GetServerSizeAsync(selectedSlug);
@@ -80,5 +82,7 @@ public sealed partial class GameServerModule
 
 			await FollowupAsync($"❌\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}", ephemeral: false);
 		}
+
+		await ClearCustomStatus();
 	}
 }
