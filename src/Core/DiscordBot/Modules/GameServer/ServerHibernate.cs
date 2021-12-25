@@ -4,6 +4,8 @@ namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
 
 public sealed partial class GameServerModule
 {
+	[RequireOwner(Group = "ServerManagerPermission")]
+	[RequireRole("Game Server Manager", Group = "ServerManagerPermission")]
 	[SlashCommand("hibernate", "Scales the server to the smallest possible size for cheapest costs when idle.")]
 	public async Task ServerHibernateAsync()
 	{
