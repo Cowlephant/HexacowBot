@@ -8,6 +8,12 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <Compile Remove="GameServer\NewFolder\**" />
+	  <EmbeddedResource Remove="GameServer\NewFolder\**" />
+	  <None Remove="GameServer\NewFolder\**" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="Ardalis.SmartEnum" Version="2.0.1" />
 		<PackageReference Include="DigitalOcean.API" Version="5.2.0" />
 		<PackageReference Include="Discord.Net.Labs" Version="3.5.0" />
