@@ -47,6 +47,12 @@ public sealed partial class GameServerModule
 
 		var selectedSlug = selectedSlugs.First();
 
+		await Context.Interaction.ModifyOriginalResponseAsync(message =>
+		{
+			message.Content = $"Selected {selectedSlug}";
+			message.Components = new ComponentBuilder().Build();
+		});
+
 		var size = await GameServer.GetServerSizeAsync(selectedSlug);
 
 		var initialMessage = await ReplyAsync(
@@ -55,11 +61,7 @@ public sealed partial class GameServerModule
 		MessagesToDelete.Add(initialMessage);
 		var serverActionResult = await GameServer.ScaleServerAsync(size);
 
-		await Context.Interaction.ModifyOriginalResponseAsync(message =>
-		{
-			message.Content = $"Selected {selectedSlug}";
-			message.Components = new ComponentBuilder().Build();
-		});
+		await GameServerStatusHelper.SetServerStatus(Context.Client, GameServer);
 
 		if (serverActionResult.Success)
 		{
@@ -82,7 +84,5 @@ public sealed partial class GameServerModule
 
 			await FollowupAsync($"❌\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}", ephemeral: false);
 		}
-
-		await ClearCustomStatus();
 	}
 }

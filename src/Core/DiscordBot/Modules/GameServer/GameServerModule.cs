@@ -84,11 +84,6 @@ public sealed partial class GameServerModule : InteractionModuleBase
 
 	private async Task SetCustomStatus(string status)
 	{
-		await (Context.Client as DiscordSocketClient)!.SetGameAsync(status, type: ActivityType.Watching);
-	}
-
-	private async Task ClearCustomStatus()
-	{
-		await (Context.Client as DiscordSocketClient)!.SetGameAsync("Ready", type: ActivityType.Watching);
+		await (Context.Client as DiscordSocketClient)!.SetGameAsync(status, type: ActivityType.Playing);
 	}
 }

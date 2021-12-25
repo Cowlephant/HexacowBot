@@ -62,6 +62,17 @@ public sealed class DigitalOceanService : IGameServer
 		}
 	}
 
+	public async Task<bool> CheckIsStarted()
+	{
+		var droplet = await GetDroplet();
+		return DropletStatus.FromName(droplet.Status) == DropletStatus.Active;
+	}
+
+	public async Task<bool> CheckIsHibernating()
+	{
+		return await Task.FromResult(CurrentSize == HibernateSize);
+	}
+
 	public async Task<ServerSize> GetCurrentSizeAsync()
 	{
 		return (await client.Droplets.Get(DropletId)).Size.ToServerSize();

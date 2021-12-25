@@ -14,6 +14,10 @@ public interface IGameServer
 
 	public IEnumerable<ServerSize> AllowedSizes { get; }
 
+	public Task<bool> CheckIsStarted();
+
+	public Task<bool> CheckIsHibernating();
+
 	public Task<ServerActionResult> StartServerAsync();
 
 	public Task<ServerActionResult> StopServerAsync();

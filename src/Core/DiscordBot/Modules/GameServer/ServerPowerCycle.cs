@@ -18,6 +18,8 @@ public sealed partial class GameServerModule
 		MessagesToDelete.Add(initialMessage);
 		var serverActionResult = await GameServer.PowerCycleServerAsync();
 
+		await GameServerStatusHelper.SetServerStatus(Context.Client, GameServer);
+
 		if (serverActionResult.Success)
 		{
 			Logger.Log(serverActionResult.Severity, serverActionResult.Message);
@@ -30,7 +32,5 @@ public sealed partial class GameServerModule
 
 			await FollowupAsync($"❌\t{serverActionResult.Message} {GetElapsedFriendly(serverActionResult.elapsedTime)}");
 		}
-
-		await ClearCustomStatus();
 	}
 }
