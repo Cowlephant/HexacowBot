@@ -2,7 +2,7 @@
 
 namespace HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 
-public sealed partial class GameServerModule
+public sealed partial class GameServerHostModule
 {
 	[SlashCommand("balance", "Shows the month to date balance for the server account.")]
 	public async Task ServerBalanceAsync()

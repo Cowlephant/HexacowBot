@@ -44,7 +44,7 @@ internal sealed class CommandHandler
 		client.ButtonExecuted += HandleComponentInteractionsAsync;
 		client.SelectMenuExecuted += HandleComponentInteractionsAsync;
 
-		var assembly = Assembly.GetAssembly(typeof(GameServerModule));
+		var assembly = Assembly.GetAssembly(typeof(GameServerHostModule));
 		await commandService.AddModulesAsync(assembly, serviceProvider);
 		await interactionService.AddModulesAsync(assembly, serviceProvider);
 	}

@@ -3,7 +3,7 @@ using Discord.Interactions;
 
 namespace HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 
-public sealed partial class GameServerModule
+public sealed partial class GameServerHostModule
 {
 	[RequireOwner]
 	[SlashCommand("restart", "Restarts the server safely.")]

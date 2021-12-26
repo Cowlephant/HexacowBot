@@ -2,7 +2,7 @@
 
 namespace HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 
-public sealed partial class GameServerModule
+public sealed partial class GameServerHostModule
 {
 	[SlashCommand("help", "Shows general help information for the server commands.")]
 	public async Task ServerHelpAsync()

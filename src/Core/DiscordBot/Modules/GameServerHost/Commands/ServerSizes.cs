@@ -2,7 +2,7 @@
 
 namespace HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 
-public sealed partial class GameServerModule
+public sealed partial class GameServerHostModule
 {
 	[SlashCommand("sizes", "Lists allowed droplet sizes.")]
 	public async Task ServerSizesAsync()
