@@ -2,15 +2,15 @@
 using HexacowBot.Core.DiscordBot;
 using HexacowBot.Core.GameServer;
 
-namespace HexacowBot.Infrastructure.DiscordBot;
+namespace HexacowBot.Infrastructure.Bot;
 
-public sealed class Bot : IDisposable
+public sealed class GameServerBot : IDisposable
 {
 	private readonly DiscordSocketClient client;
 	private readonly CommandHandler commandHandler;
 	private readonly IGameServer gameServer;
 
-	public Bot(DiscordSocketClient client, CommandHandler commandHandler, IGameServer gameServer)
+	public GameServerBot(DiscordSocketClient client, CommandHandler commandHandler, IGameServer gameServer)
 	{
 		this.client = client;
 		this.commandHandler = commandHandler;

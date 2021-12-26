@@ -1,6 +1,6 @@
 ﻿using Discord;
 
-namespace HexacowBot.Infrastructure.DiscordBot;
+namespace HexacowBot.Infrastructure.Bot;
 
 public sealed class LoggingMapper
 {

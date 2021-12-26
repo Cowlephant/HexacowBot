@@ -5,7 +5,7 @@ using Discord.WebSocket;
 using HexacowBot.Core.DiscordBot.Modules.GameServer;
 using System.Reflection;
 
-namespace HexacowBot.Infrastructure.DiscordBot;
+namespace HexacowBot.Infrastructure.Bot;
 
 public sealed class CommandHandler
 {
