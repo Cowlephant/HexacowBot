@@ -2,7 +2,7 @@
 
 namespace HexacowBot.Infrastructure.Bot;
 
-public sealed class LoggingMapper
+internal sealed class LoggingMapper
 {
 	public static LogLevel LogSeverityToLogLevel(LogSeverity severity)
 	{

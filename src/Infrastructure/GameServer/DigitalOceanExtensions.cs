@@ -3,7 +3,7 @@ using HexacowBot.Core.GameServer;
 
 namespace HexacowBot.Infrastructure.GameServer;
 
-public static class DigitalOceanExtensions
+internal static class DigitalOceanExtensions
 {
 	public static ServerSize ToServerSize(this Size size)
 	{

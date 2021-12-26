@@ -7,7 +7,7 @@ using System.Reflection;
 
 namespace HexacowBot.Infrastructure.Bot;
 
-public sealed class CommandHandler
+internal sealed class CommandHandler
 {
 	private readonly DiscordSocketClient client;
 	private readonly CommandService commandService;

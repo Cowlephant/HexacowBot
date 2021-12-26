@@ -4,7 +4,7 @@ using HexacowBot.Core.GameServer;
 
 namespace HexacowBot.Infrastructure.Bot;
 
-public sealed class GameServerBot : IDisposable
+internal sealed class GameServerBot : IDisposable
 {
 	private readonly DiscordSocketClient client;
 	private readonly CommandHandler commandHandler;

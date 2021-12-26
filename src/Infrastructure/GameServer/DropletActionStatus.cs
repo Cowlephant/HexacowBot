@@ -2,7 +2,7 @@
 
 namespace HexacowBot.Infrastructure.GameServer;
 
-public sealed class DropletActionStatus : SmartEnum<DropletActionStatus>
+internal sealed class DropletActionStatus : SmartEnum<DropletActionStatus>
 {
 	public static DropletActionStatus Completed = new DropletActionStatus("completed", 1);
 	public static DropletActionStatus InProgress = new DropletActionStatus("in-progress", 2);

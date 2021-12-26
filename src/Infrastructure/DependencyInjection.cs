@@ -16,6 +16,22 @@ public static class DependencyInjection
 {
 	public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
 	{
+		ConfigureBot(services, configuration);
+		ConfigureGameServer(services, configuration);
+
+		return services;
+	}
+
+	public static void WarmUpInfrastructure(this IApplicationBuilder app)
+	{
+		var gameServerBot = app.ApplicationServices.GetRequiredService<GameServerBot>();
+		var lifetime = app.ApplicationServices.GetRequiredService<IHostApplicationLifetime>();
+
+		lifetime.ApplicationStopped.Register(async _ => await gameServerBot.Stop(), gameServerBot);
+	}
+
+	private static IServiceCollection ConfigureBot(IServiceCollection services, IConfiguration configuration)
+	{
 		services.AddSingleton(serviceCollection =>
 		{
 			var logger = serviceCollection.GetRequiredService<ILogger<DiscordSocketClient>>();
@@ -60,6 +76,13 @@ public static class DependencyInjection
 
 		services.AddSingleton<CommandHandler>();
 
+		services.AddSingleton<GameServerBot>();
+
+		return services;
+	}
+
+	private static IServiceCollection ConfigureGameServer(IServiceCollection services, IConfiguration configuration)
+	{
 		services.AddSingleton<IGameServer, DigitalOceanService>();
 
 		services.AddSingleton(_ =>
@@ -70,16 +93,6 @@ public static class DependencyInjection
 			return client;
 		});
 
-		services.AddSingleton<GameServerBot>();
-
 		return services;
-	}
-
-	public static void WarmUpInfrastructure(this IApplicationBuilder app)
-	{
-		var gameServerBot = app.ApplicationServices.GetRequiredService<GameServerBot>();
-		var lifetime = app.ApplicationServices.GetRequiredService<IHostApplicationLifetime>();
-
-		lifetime.ApplicationStopped.Register(async _ => await gameServerBot.Stop(), gameServerBot);
 	}
 }
