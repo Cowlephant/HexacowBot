@@ -1,4 +1,5 @@
-﻿using Discord.WebSocket;
+﻿using Discord;
+using Discord.WebSocket;
 using HexacowBot.Core.DiscordBot;
 using HexacowBot.Core.GameServerHost;
 
@@ -9,12 +10,18 @@ internal sealed class GameServerHostBot : IDisposable
 	private readonly DiscordSocketClient client;
 	private readonly CommandHandler commandHandler;
 	private readonly IGameServerHost gameServerHost;
+	private readonly ILogger<GameServerHostBot> logger;
 
-	public GameServerHostBot(DiscordSocketClient client, CommandHandler commandHandler, IGameServerHost gameServerHost)
+	public GameServerHostBot(
+		DiscordSocketClient client,
+		CommandHandler commandHandler,
+		IGameServerHost gameServerHost,
+		ILogger<GameServerHostBot> logger)
 	{
 		this.client = client;
 		this.commandHandler = commandHandler;
 		this.gameServerHost = gameServerHost;
+		this.logger = logger;
 
 		Start();
 	}
@@ -27,6 +34,7 @@ internal sealed class GameServerHostBot : IDisposable
 	private async void Start()
 	{
 		client.Ready += HandleClientReady;
+		client.Log += HandleLog;
 		await commandHandler.InstallCommandsAsync();
 	}
 
@@ -44,5 +52,12 @@ internal sealed class GameServerHostBot : IDisposable
 		await commandHandler.RegisterSlashCommands();
 
 		await GameServerStatusHelper.SetServerStatus(client, gameServerHost);
+	}
+
+	private async Task HandleLog(LogMessage logMessage)
+	{
+		var severity = LoggingMapper.LogSeverityToLogLevel(logMessage.Severity);
+		logger.Log(severity, logMessage.Message);
+		await Task.CompletedTask;
 	}
 }

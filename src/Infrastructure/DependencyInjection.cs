@@ -17,7 +17,7 @@ public static class DependencyInjection
 	public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
 	{
 		ConfigureBot(services, configuration);
-		ConfigureGameServer(services, configuration);
+		ConfigureGameServerHost(services, configuration);
 
 		return services;
 	}
@@ -42,13 +42,6 @@ public static class DependencyInjection
 				UseInteractionSnowflakeDate = false,
 				GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.GuildMembers
 			});
-
-			client.Log += logMessage =>
-			{
-				var severity = LoggingMapper.LogSeverityToLogLevel(logMessage.Severity);
-				logger.Log(severity, logMessage.Message);
-				return Task.CompletedTask;
-			};
 
 			client.LoginAsync(TokenType.Bot, botToken, validateToken: true).Wait();
 			client.StartAsync().Wait();
@@ -81,7 +74,7 @@ public static class DependencyInjection
 		return services;
 	}
 
-	private static IServiceCollection ConfigureGameServer(IServiceCollection services, IConfiguration configuration)
+	private static IServiceCollection ConfigureGameServerHost(IServiceCollection services, IConfiguration configuration)
 	{
 		services.AddSingleton<IGameServerHost, DigitalOceanService>();
 
