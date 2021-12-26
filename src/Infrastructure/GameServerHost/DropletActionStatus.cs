@@ -1,6 +1,6 @@
 ﻿using Ardalis.SmartEnum;
 
-namespace HexacowBot.Infrastructure.GameServer;
+namespace HexacowBot.Infrastructure.GameServerHost;
 
 internal sealed class DropletActionStatus : SmartEnum<DropletActionStatus>
 {

@@ -1,8 +1,7 @@
 ﻿using Discord;
 using Discord.Interactions;
-using Discord.WebSocket;
 
-namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
+namespace HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 
 public sealed partial class GameServerModule
 {
@@ -15,13 +14,13 @@ public sealed partial class GameServerModule
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
-		var initialMessage = await ReplyAsync($"Attempting to restart the server __**{GameServer.ServerName}**__.");
+		var initialMessage = await ReplyAsync($"Attempting to restart the server __**{GameServerHost.ServerName}**__.");
 		await SetCustomStatus("Restarting");
 
 		MessagesToDelete.Add(initialMessage);
-		var serverActionResult = await GameServer.RestartServerAsync();
+		var serverActionResult = await GameServerHost.RestartServerAsync();
 
-		await GameServerStatusHelper.SetServerStatus(Context.Client, GameServer);
+		await GameServerStatusHelper.SetServerStatus(Context.Client, GameServerHost);
 
 		if (serverActionResult.Success)
 		{

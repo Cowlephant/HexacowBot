@@ -1,7 +1,7 @@
 ﻿using Discord;
 using Discord.Interactions;
 
-namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
+namespace HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 
 public sealed partial class GameServerModule
 {
@@ -12,9 +12,9 @@ public sealed partial class GameServerModule
 	{
 		await DeferAsync(ephemeral: true);
 
-		var sizeOptions = new List<SelectMenuOptionBuilder>(GameServer.AllowedSizes.Count());
+		var sizeOptions = new List<SelectMenuOptionBuilder>(GameServerHost.AllowedSizes.Count());
 
-		foreach (var size in GameServer.AllowedSizes)
+		foreach (var size in GameServerHost.AllowedSizes)
 		{
 			var description =
 				$"vCpus: {size.Vcpus} | RAM: {size.Memory} | Monthly: ${size.PriceMonthly} | Hourly: ${size.PriceHourly}";
@@ -53,15 +53,15 @@ public sealed partial class GameServerModule
 			message.Components = new ComponentBuilder().Build();
 		});
 
-		var size = await GameServer.GetServerSizeAsync(selectedSlug);
+		var size = await GameServerHost.GetServerSizeAsync(selectedSlug);
 
 		var initialMessage = await ReplyAsync(
-			$"Attempting to scale the server __**{GameServer.ServerName}**__ to size {size!.Slug}.");
+			$"Attempting to scale the server __**{GameServerHost.ServerName}**__ to size {size!.Slug}.");
 
 		MessagesToDelete.Add(initialMessage);
-		var serverActionResult = await GameServer.ScaleServerAsync(size);
+		var serverActionResult = await GameServerHost.ScaleServerAsync(size);
 
-		await GameServerStatusHelper.SetServerStatus(Context.Client, GameServer);
+		await GameServerStatusHelper.SetServerStatus(Context.Client, GameServerHost);
 
 		if (serverActionResult.Success)
 		{

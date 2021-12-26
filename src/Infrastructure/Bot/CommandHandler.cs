@@ -2,7 +2,7 @@
 using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
-using HexacowBot.Core.DiscordBot.Modules.GameServer;
+using HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 using System.Reflection;
 
 namespace HexacowBot.Infrastructure.Bot;

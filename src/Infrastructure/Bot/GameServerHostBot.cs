@@ -1,20 +1,20 @@
 ﻿using Discord.WebSocket;
 using HexacowBot.Core.DiscordBot;
-using HexacowBot.Core.GameServer;
+using HexacowBot.Core.GameServerHost;
 
 namespace HexacowBot.Infrastructure.Bot;
 
-internal sealed class GameServerBot : IDisposable
+internal sealed class GameServerHostBot : IDisposable
 {
 	private readonly DiscordSocketClient client;
 	private readonly CommandHandler commandHandler;
-	private readonly IGameServer gameServer;
+	private readonly IGameServerHost gameServerHost;
 
-	public GameServerBot(DiscordSocketClient client, CommandHandler commandHandler, IGameServer gameServer)
+	public GameServerHostBot(DiscordSocketClient client, CommandHandler commandHandler, IGameServerHost gameServerHost)
 	{
 		this.client = client;
 		this.commandHandler = commandHandler;
-		this.gameServer = gameServer;
+		this.gameServerHost = gameServerHost;
 
 		Start();
 	}
@@ -43,6 +43,6 @@ internal sealed class GameServerBot : IDisposable
 	{
 		await commandHandler.RegisterSlashCommands();
 
-		await GameServerStatusHelper.SetServerStatus(client, gameServer);
+		await GameServerStatusHelper.SetServerStatus(client, gameServerHost);
 	}
 }

@@ -1,6 +1,6 @@
 ﻿using Discord.Interactions;
 
-namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
+namespace HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 
 public sealed partial class GameServerModule
 {
@@ -15,11 +15,11 @@ public sealed partial class GameServerModule
 
 		await RetryClearComponentInteraction(Context.Interaction);
 
-		var initialMessage = await ReplyAsync($"Preparing server __**{GameServer.ServerName}**__ for hibernation.");
+		var initialMessage = await ReplyAsync($"Preparing server __**{GameServerHost.ServerName}**__ for hibernation.");
 		MessagesToDelete.Add(initialMessage);
-		var serverActionResult = await GameServer.HibernateServerAsync();
+		var serverActionResult = await GameServerHost.HibernateServerAsync();
 
-		await GameServerStatusHelper.SetServerStatus(Context.Client, GameServer);
+		await GameServerStatusHelper.SetServerStatus(Context.Client, GameServerHost);
 
 		if (serverActionResult.Success)
 		{

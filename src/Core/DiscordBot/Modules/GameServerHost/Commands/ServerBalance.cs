@@ -1,6 +1,6 @@
 ﻿using Discord.Interactions;
 
-namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
+namespace HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 
 public sealed partial class GameServerModule
 {
@@ -8,7 +8,7 @@ public sealed partial class GameServerModule
 	public async Task ServerBalanceAsync()
 	{
 		await DeferAsync(ephemeral: true);
-		var balance = $"${await GameServer.GetMonthToDateBalanceAsync()}";
+		var balance = $"${await GameServerHost.GetMonthToDateBalanceAsync()}";
 		var response = $"```Monthly Balance\t {balance}```";
 		await FollowupAsync(response, ephemeral: true);
 	}

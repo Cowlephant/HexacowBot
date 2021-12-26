@@ -1,4 +1,4 @@
-﻿namespace HexacowBot.Core.GameServer;
+﻿namespace HexacowBot.Core.GameServerHost;
 
 public sealed record class ServerSize()
 {

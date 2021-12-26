@@ -1,15 +1,15 @@
 ﻿using Discord;
 using Discord.WebSocket;
-using HexacowBot.Core.GameServer;
+using HexacowBot.Core.GameServerHost;
 
 namespace HexacowBot.Core.DiscordBot;
 
 public static class GameServerStatusHelper
 {
-	public static async Task SetServerStatus(IDiscordClient client, IGameServer gameServer)
+	public static async Task SetServerStatus(IDiscordClient client, IGameServerHost gameServerHost)
 	{
-		var isStarted = await gameServer.CheckIsStarted();
-		var isHibernating = await gameServer.CheckIsHibernating();
+		var isStarted = await gameServerHost.CheckIsStarted();
+		var isHibernating = await gameServerHost.CheckIsHibernating();
 
 		if (isStarted && isHibernating)
 		{

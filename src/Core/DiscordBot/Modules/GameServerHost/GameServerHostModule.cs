@@ -1,28 +1,28 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
-using HexacowBot.Core.GameServer;
+using HexacowBot.Core.GameServerHost;
 
-namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
+namespace HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 
 [Group("server", "Manage the Game Server")]
-public sealed partial class GameServerModule : InteractionModuleBase
+public sealed partial class GameServerHostModule : InteractionModuleBase
 {
 	private const string OwnerError = "During development this bot is only usable by the creator.";
 	private const string RetryPrompt = "Would you like to retry?";
 
-	private IGameServer GameServer { get; set; }
+	private IGameServerHost GameServerHost { get; set; }
 	private IConfiguration Configuration { get; set; }
 	private ILogger Logger { get; set; }
 
 	private List<IUserMessage> MessagesToDelete { get; set; }
 
-	public GameServerModule(
-		IGameServer gameServer,
+	public GameServerHostModule(
+		IGameServerHost gameServerHost,
 		IConfiguration configuration,
-		ILogger<GameServerModule> logger)
+		ILogger<GameServerHostModule> logger)
 	{
-		GameServer = gameServer;
+		GameServerHost = gameServerHost;
 		Configuration = configuration;
 		Logger = logger;
 

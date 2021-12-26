@@ -1,7 +1,7 @@
 ﻿using DigitalOcean.API.Models.Responses;
-using HexacowBot.Core.GameServer;
+using HexacowBot.Core.GameServerHost;
 
-namespace HexacowBot.Infrastructure.GameServer;
+namespace HexacowBot.Infrastructure.GameServerHost;
 
 internal static class DigitalOceanExtensions
 {

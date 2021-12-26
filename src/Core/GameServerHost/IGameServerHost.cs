@@ -1,6 +1,6 @@
-﻿namespace HexacowBot.Core.GameServer;
+﻿namespace HexacowBot.Core.GameServerHost;
 
-public interface IGameServer
+public interface IGameServerHost
 {
 	public string ServerName { get; }
 

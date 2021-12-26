@@ -1,6 +1,6 @@
 ﻿using Discord.Interactions;
 
-namespace HexacowBot.Core.DiscordBot.Modules.GameServer;
+namespace HexacowBot.Core.DiscordBot.Modules.GameServerHost;
 
 public sealed partial class GameServerModule
 {
@@ -9,8 +9,8 @@ public sealed partial class GameServerModule
 	{
 		await DeferAsync(ephemeral: true);
 
-		var allowedSizes = GameServer.AllowedSizes;
-		var hibernateSize = GameServer.HibernateSize;
+		var allowedSizes = GameServerHost.AllowedSizes;
+		var hibernateSize = GameServerHost.HibernateSize;
 
 		var response = new StringBuilder();
 		response.AppendLine("__Allowed server sizes__");
@@ -18,7 +18,7 @@ public sealed partial class GameServerModule
 		foreach (var size in allowedSizes)
 		{
 			var slug = size.Slug;
-			var active = size.Slug == GameServer.CurrentSize.Slug ? "✅" : string.Empty;
+			var active = size.Slug == GameServerHost.CurrentSize.Slug ? "✅" : string.Empty;
 			var hibernation = size == hibernateSize ? "💤" : string.Empty;
 			var vCpus = $"vCpus: {size.Vcpus}";
 			var ram = $"RAM: {(size.Memory / 1024)}GB";
